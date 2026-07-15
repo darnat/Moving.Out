@@ -24,7 +24,7 @@ export function BoxDetail({ box }: { box: BoxWithRelations }) {
     router.refresh();
   }
 
-  async function handleRemoveItem(itemId: string, itemName: string) {
+  async function handleRemoveItem(itemId: string) {
     await removeItem(itemId);
     router.refresh();
   }
@@ -41,91 +41,181 @@ export function BoxDetail({ box }: { box: BoxWithRelations }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">{box.labelNumber}</h1>
-          <p className="text-sm text-gray-500">
-            {box.room.name} · {box.boxSize.name}
-          </p>
-          {box.gridCol !== null && (
-            <p className="text-xs text-gray-400 mt-0.5">
-              Col {box.gridCol} · Row {box.gridRow} · Level {box.stackLevel}
+      {/* Box header */}
+      <div
+        className="rounded-2xl p-5 space-y-3"
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-kraft)",
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            {/* Label number — styled like an actual label */}
+            <div className="flex items-center gap-2">
+              <div
+                className="w-1 h-8 rounded-full shrink-0"
+                style={{
+                  background: box.retrieved ? "var(--color-kraft)" : "var(--color-freight)",
+                }}
+              />
+              <h1
+                className="label-number font-bold text-2xl leading-none"
+                style={{ color: "var(--color-ink)" }}
+              >
+                {box.labelNumber}
+              </h1>
+            </div>
+            <p className="text-sm pl-3" style={{ color: "var(--color-pencil)" }}>
+              {box.room.name} · {box.boxSize.name}
             </p>
-          )}
+          </div>
+
           {box.retrieved && (
-            <span className="mt-1 inline-block rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
+            <span
+              className="rounded-lg px-2.5 py-1 text-xs font-medium shrink-0"
+              style={{
+                background: "var(--color-paper)",
+                border: "1px solid var(--color-kraft)",
+                color: "var(--color-pencil)",
+              }}
+            >
               Retrieved
             </span>
           )}
         </div>
-        <button
-          onClick={() => router.back()}
-          className="text-sm text-gray-400 hover:text-gray-600"
-        >
-          ← Back
-        </button>
+
+        {box.gridCol !== null && (
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-2"
+            style={{ background: "var(--color-freight-tint)" }}
+          >
+            <svg
+              className="w-3.5 h-3.5 shrink-0"
+              style={{ color: "var(--color-freight)" }}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span className="text-xs font-medium" style={{ color: "var(--color-freight)" }}>
+              Col {box.gridCol} · Row {box.gridRow} · Level {box.stackLevel}
+            </span>
+          </div>
+        )}
       </div>
 
-      <section>
-        <h2 className="mb-2 text-sm font-semibold text-gray-700">Items</h2>
-        <div className="flex gap-2 mb-2">
+      {/* Items */}
+      <div className="space-y-3">
+        <h2
+          className="text-xs font-medium uppercase tracking-wider"
+          style={{ color: "var(--color-pencil)" }}
+        >
+          Contents — {box.items.length} item{box.items.length !== 1 ? "s" : ""}
+        </h2>
+
+        <div className="flex gap-2">
           <input
             type="text"
             value={itemInput}
             onChange={(e) => setItemInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddItem())}
             data-testid="item-input"
-            placeholder="Add an item..."
-            className="flex-1 rounded border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Add another item…"
+            className="flex-1 rounded-xl px-4 py-3 text-sm"
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-kraft)",
+              color: "var(--color-ink)",
+            }}
           />
           <button
             type="button"
             onClick={handleAddItem}
             data-testid="add-item-btn"
-            className="rounded bg-gray-100 px-3 py-2 text-sm font-medium hover:bg-gray-200"
+            className="rounded-xl px-4 py-3 text-sm font-medium"
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-kraft)",
+              color: "var(--color-ink)",
+            }}
           >
             Add
           </button>
         </div>
-        <ul className="space-y-1">
-          {box.items.map((item) => (
-            <li
-              key={item.id}
-              className="flex items-center justify-between rounded bg-gray-50 px-3 py-1.5 text-sm"
-            >
-              <span>{item.name}</span>
-              <button
-                type="button"
-                data-testid={`remove-item-${item.name}`}
-                onClick={() => handleRemoveItem(item.id, item.name)}
-                className="text-gray-400 hover:text-red-500"
-              >
-                ×
-              </button>
-            </li>
-          ))}
-          {box.items.length === 0 && (
-            <li className="text-sm text-gray-400">No items yet</li>
-          )}
-        </ul>
-      </section>
 
-      <section className="flex gap-2 pt-4 border-t">
+        {box.items.length > 0 ? (
+          <ul
+            className="rounded-xl overflow-hidden"
+            style={{ border: "1px solid var(--color-kraft)" }}
+          >
+            {box.items.map((item, i) => (
+              <li
+                key={item.id}
+                className="flex items-center justify-between px-4 py-3 text-sm"
+                style={{
+                  background: "var(--color-surface)",
+                  borderTop: i > 0 ? "1px solid var(--color-kraft)" : "none",
+                }}
+              >
+                <span style={{ color: "var(--color-ink)" }}>{item.name}</span>
+                <button
+                  type="button"
+                  data-testid={`remove-item-${item.name}`}
+                  onClick={() => handleRemoveItem(item.id)}
+                  className="text-lg leading-none ml-3"
+                  style={{ color: "var(--color-kraft)" }}
+                  onMouseOver={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.color = "var(--color-freight)")
+                  }
+                  onMouseOut={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.color = "var(--color-kraft)")
+                  }
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm py-2" style={{ color: "var(--color-pencil)" }}>
+            No items recorded yet
+          </p>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-2" style={{ borderTop: "1px solid var(--color-kraft)" }}>
         <button
           onClick={handleToggleRetrieved}
           data-testid={box.retrieved ? "un-retrieve-btn" : "retrieve-btn"}
-          className="flex-1 rounded border px-3 py-2 text-sm font-medium hover:bg-gray-50"
+          className="flex-1 rounded-xl px-4 py-3 text-sm font-medium transition-colors"
+          style={{
+            border: "1px solid var(--color-kraft)",
+            color: "var(--color-ink)",
+          }}
         >
-          {box.retrieved ? "Mark as In Storage" : "Mark as Retrieved"}
+          {box.retrieved ? "Back in storage" : "Mark as retrieved"}
         </button>
         <button
           onClick={handleDelete}
           data-testid="delete-box-btn"
-          className="rounded border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+          className="rounded-xl px-4 py-3 text-sm font-medium transition-colors"
+          style={{
+            border: "1px solid color-mix(in srgb, var(--color-freight) 30%, transparent)",
+            color: "var(--color-freight)",
+          }}
         >
           Delete
         </button>
-      </section>
+      </div>
     </div>
   );
 }

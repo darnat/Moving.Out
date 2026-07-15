@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { Nav } from "@/app/components/Nav";
 import { BoxDetail } from "./BoxDetail";
 
 export default async function BoxPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,8 +17,11 @@ export default async function BoxPage({ params }: { params: Promise<{ id: string
   if (!box) notFound();
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-8">
-      <BoxDetail box={box} />
-    </main>
+    <div className="min-h-screen" style={{ background: "var(--color-paper)" }}>
+      <Nav />
+      <main className="mx-auto max-w-lg px-4 py-8">
+        <BoxDetail box={box} />
+      </main>
+    </div>
   );
 }

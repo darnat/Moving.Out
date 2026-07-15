@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Nav } from "@/app/components/Nav";
 import { NewBoxForm } from "./NewBoxForm";
 
 export default async function NewBoxPage() {
@@ -12,9 +13,14 @@ export default async function NewBoxPage() {
   ]);
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-8">
-      <h1 className="mb-6 text-xl font-bold text-gray-900">Register New Box</h1>
-      <NewBoxForm rooms={rooms} boxSizes={boxSizes} />
-    </main>
+    <div className="min-h-screen" style={{ background: "var(--color-paper)" }}>
+      <Nav />
+      <main className="mx-auto max-w-lg px-4 py-8">
+        <h1 className="font-display font-semibold text-2xl mb-6" style={{ color: "var(--color-ink)" }}>
+          Register a box
+        </h1>
+        <NewBoxForm rooms={rooms} boxSizes={boxSizes} />
+      </main>
+    </div>
   );
 }

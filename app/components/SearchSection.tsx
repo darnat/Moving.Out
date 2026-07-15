@@ -34,20 +34,44 @@ export function SearchSection({
 
   return (
     <div className="space-y-4">
+      {/* Search bar */}
       <div className="flex gap-2">
-        <input
-          type="text"
-          placeholder="Search items..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          data-testid="search-input"
-          className="flex-1 rounded border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <div className="relative flex-1">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+            style={{ color: "var(--color-pencil)" }}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path strokeLinecap="round" d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Find anything — coffee machine, books, lamp..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            data-testid="search-input"
+            className="w-full rounded-xl py-3 pl-10 pr-4 text-sm transition-shadow"
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-kraft)",
+              color: "var(--color-ink)",
+            }}
+          />
+        </div>
         <select
           value={roomFilter}
           onChange={(e) => setRoomFilter(e.target.value)}
           data-testid="room-filter"
-          className="rounded border px-3 py-2 text-sm"
+          className="rounded-xl px-3 py-3 text-sm"
+          style={{
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-kraft)",
+            color: roomFilter ? "var(--color-ink)" : "var(--color-pencil)",
+          }}
         >
           <option value="">All rooms</option>
           {rooms.map((r) => (
@@ -58,70 +82,152 @@ export function SearchSection({
         </select>
       </div>
 
+      {/* Results */}
       <div data-testid="search-results" className="space-y-2">
-        {hasQuery ? (
+        {boxes.length === 0 && !hasQuery ? (
+          <EmptyState />
+        ) : hasQuery ? (
           results.length === 0 ? (
-            <p className="text-sm text-gray-400">No results</p>
+            <p className="py-8 text-center text-sm" style={{ color: "var(--color-pencil)" }}>
+              Nothing found — try a different search
+            </p>
           ) : (
             results.map(({ box, matchingItems }) => (
-              <Link
+              <BoxCard
                 key={box.id}
-                href={`/boxes/${box.id}`}
-                className="block rounded-lg border px-4 py-3 hover:bg-gray-50"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{box.labelNumber}</span>
-                  <div className="flex items-center gap-2">
-                    {box.retrieved && (
-                      <span className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
-                        Retrieved
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-500">{box.room.name}</span>
-                  </div>
-                </div>
-                {box.gridCol !== null && (
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Col {box.gridCol} · Row {box.gridRow} · Level {box.stackLevel}
-                  </p>
-                )}
-                {deferredQuery && (
-                  <ul className="mt-1 space-y-0.5">
-                    {matchingItems.map((item) => (
-                      <li key={item.id} className="text-xs text-gray-600">
-                        {item.name}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Link>
+                box={box}
+                matchingItems={deferredQuery ? matchingItems : []}
+                showItems={!!deferredQuery}
+              />
             ))
           )
         ) : (
           results.map(({ box }) => (
-            <Link
-              key={box.id}
-              href={`/boxes/${box.id}`}
-              className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-gray-50"
-            >
-              <span className="font-medium text-sm">{box.labelNumber}</span>
-              <div className="flex items-center gap-2">
-                {box.retrieved && (
-                  <span className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
-                    Retrieved
-                  </span>
-                )}
-                <span className="text-xs text-gray-500">{box.room.name}</span>
-                {box.gridCol === null && !box.retrieved && (
-                  <span className="rounded bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
-                    Unplaced
-                  </span>
-                )}
-              </div>
-            </Link>
+            <BoxCard key={box.id} box={box} matchingItems={[]} showItems={false} />
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+function BoxCard({
+  box,
+  matchingItems,
+  showItems,
+}: {
+  box: BoxWithRelations & { room: Room };
+  matchingItems: Item[];
+  showItems: boolean;
+}) {
+  return (
+    <Link
+      href={`/boxes/${box.id}`}
+      className="flex items-start gap-4 rounded-xl px-4 py-3.5 transition-colors group"
+      style={{
+        background: "var(--color-surface)",
+        border: "1px solid var(--color-kraft)",
+      }}
+    >
+      {/* Orange left accent bar */}
+      <div
+        className="w-1 self-stretch rounded-full shrink-0 mt-0.5"
+        style={{
+          background: box.retrieved
+            ? "var(--color-kraft)"
+            : box.gridCol !== null
+            ? "var(--color-freight)"
+            : "color-mix(in srgb, var(--color-freight) 40%, transparent)",
+        }}
+      />
+
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          {/* Label number in mono */}
+          <span
+            className="label-number font-semibold text-sm"
+            style={{ color: "var(--color-ink)" }}
+          >
+            {box.labelNumber}
+          </span>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {box.retrieved && (
+              <span
+                className="rounded-md px-2 py-0.5 text-xs font-medium"
+                style={{
+                  background: "var(--color-paper)",
+                  color: "var(--color-pencil)",
+                  border: "1px solid var(--color-kraft)",
+                }}
+              >
+                Retrieved
+              </span>
+            )}
+            {box.gridCol === null && !box.retrieved && (
+              <span
+                className="rounded-md px-2 py-0.5 text-xs font-medium"
+                style={{
+                  background: "var(--color-freight-tint)",
+                  color: "var(--color-freight)",
+                }}
+              >
+                Unplaced
+              </span>
+            )}
+            <span className="text-xs" style={{ color: "var(--color-pencil)" }}>
+              {box.room.name}
+            </span>
+          </div>
+        </div>
+
+        {box.gridCol !== null && (
+          <p className="text-xs" style={{ color: "var(--color-pencil)" }}>
+            Col {box.gridCol} · Row {box.gridRow} · Level {box.stackLevel}
+          </p>
+        )}
+
+        {showItems && matchingItems.length > 0 && (
+          <ul className="space-y-0.5 pt-0.5">
+            {matchingItems.map((item) => (
+              <li key={item.id} className="text-xs" style={{ color: "var(--color-pencil)" }}>
+                {item.name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <svg
+        className="w-4 h-4 shrink-0 mt-0.5 transition-transform group-hover:translate-x-0.5"
+        style={{ color: "var(--color-kraft)" }}
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    </Link>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="py-16 text-center space-y-3">
+      <p className="font-display font-semibold text-lg" style={{ color: "var(--color-ink)" }}>
+        No boxes yet
+      </p>
+      <p className="text-sm" style={{ color: "var(--color-pencil)" }}>
+        Add your first box to start tracking your move
+      </p>
+      <a
+        href="/boxes/new"
+        className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white mt-2"
+        style={{ background: "var(--color-freight)" }}
+      >
+        + Register a box
+      </a>
     </div>
   );
 }

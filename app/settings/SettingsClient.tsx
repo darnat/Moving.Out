@@ -11,6 +11,12 @@ import {
   updateStorageUnit,
 } from "@/lib/actions/settings";
 
+const inputStyle = {
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-kraft)",
+  color: "var(--color-ink)",
+};
+
 export function SettingsClient({
   boxSizes,
   rooms,
@@ -23,7 +29,6 @@ export function SettingsClient({
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  // Controlled inputs for storage unit so they reflect server data after refresh
   const [widthCells, setWidthCells] = useState(storageUnit.widthCells);
   const [depthCells, setDepthCells] = useState(storageUnit.depthCells);
   useEffect(() => {
@@ -58,11 +63,14 @@ export function SettingsClient({
 
   return (
     <div className="space-y-10">
+      {/* Storage unit */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-gray-700">Storage Unit</h2>
-        <form onSubmit={handleUpdateStorage} className="flex gap-2 items-end">
-          <div>
-            <label className="mb-1 block text-xs text-gray-500">Width (cells)</label>
+        <SectionHeader>Storage unit</SectionHeader>
+        <form onSubmit={handleUpdateStorage} className="flex gap-3 items-end">
+          <div className="space-y-1.5">
+            <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>
+              Width (cells)
+            </label>
             <input
               name="widthCells"
               type="number"
@@ -70,11 +78,14 @@ export function SettingsClient({
               value={widthCells}
               onChange={(e) => setWidthCells(Number(e.target.value))}
               data-testid="storage-width"
-              className="w-24 rounded border px-3 py-2 text-sm"
+              className="w-24 rounded-xl px-3 py-2.5 text-sm"
+              style={inputStyle}
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs text-gray-500">Depth (cells)</label>
+          <div className="space-y-1.5">
+            <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>
+              Depth (cells)
+            </label>
             <input
               name="depthCells"
               type="number"
@@ -82,30 +93,42 @@ export function SettingsClient({
               value={depthCells}
               onChange={(e) => setDepthCells(Number(e.target.value))}
               data-testid="storage-depth"
-              className="w-24 rounded border px-3 py-2 text-sm"
+              className="w-24 rounded-xl px-3 py-2.5 text-sm"
+              style={inputStyle}
             />
           </div>
           <button
             type="submit"
             data-testid="save-storage-btn"
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="rounded-xl px-4 py-2.5 text-sm font-medium text-white"
+            style={{ background: "var(--color-freight)" }}
           >
             Save
           </button>
         </form>
       </section>
 
+      {/* Box sizes */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-gray-700">Box Sizes</h2>
-        <ul className="mb-3 space-y-1">
-          {boxSizes.map((bs) => (
+        <SectionHeader>Box sizes</SectionHeader>
+        <ul
+          className="mb-3 rounded-xl overflow-hidden"
+          style={{ border: "1px solid var(--color-kraft)" }}
+        >
+          {boxSizes.map((bs, i) => (
             <li
               key={bs.id}
               data-testid={`box-size-row-${bs.name}`}
-              className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
+              className="flex items-center justify-between px-4 py-3 text-sm"
+              style={{
+                background: "var(--color-surface)",
+                borderTop: i > 0 ? "1px solid var(--color-kraft)" : "none",
+              }}
             >
-              <span className="font-medium">{bs.name}</span>
-              <span className="ml-2 text-xs text-gray-400">
+              <span className="font-medium" style={{ color: "var(--color-ink)" }}>
+                {bs.name}
+              </span>
+              <span className="label-number text-xs mx-auto" style={{ color: "var(--color-pencil)" }}>
                 {bs.widthCells}×{bs.depthCells}×{bs.heightCells}
               </span>
               <button
@@ -115,12 +138,18 @@ export function SettingsClient({
                   await deleteBoxSize(bs.id);
                   router.refresh();
                 }}
-                className="ml-auto text-gray-400 hover:text-red-500 text-xs"
+                className="text-xs"
+                style={{ color: "var(--color-pencil)" }}
               >
-                Delete
+                Remove
               </button>
             </li>
           ))}
+          {boxSizes.length === 0 && (
+            <li className="px-4 py-3 text-sm" style={{ color: "var(--color-pencil)" }}>
+              No box sizes
+            </li>
+          )}
         </ul>
         <form onSubmit={handleAddBoxSize} className="flex gap-2">
           <input
@@ -128,55 +157,56 @@ export function SettingsClient({
             placeholder="Name"
             required
             data-testid="new-box-size-name"
-            className="flex-1 rounded border px-3 py-2 text-sm"
+            className="flex-1 rounded-xl px-3 py-2.5 text-sm"
+            style={inputStyle}
           />
-          <input
-            name="widthCells"
-            type="number"
-            min={1}
-            placeholder="W"
-            required
-            data-testid="new-box-size-width"
-            className="w-14 rounded border px-2 py-2 text-sm"
-          />
-          <input
-            name="depthCells"
-            type="number"
-            min={1}
-            placeholder="D"
-            required
-            data-testid="new-box-size-depth"
-            className="w-14 rounded border px-2 py-2 text-sm"
-          />
-          <input
-            name="heightCells"
-            type="number"
-            min={1}
-            placeholder="H"
-            required
-            data-testid="new-box-size-height"
-            className="w-14 rounded border px-2 py-2 text-sm"
-          />
+          {(["W", "D", "H"] as const).map((dim, idx) => (
+            <input
+              key={dim}
+              name={["widthCells", "depthCells", "heightCells"][idx]}
+              type="number"
+              min={1}
+              placeholder={dim}
+              required
+              data-testid={
+                ["new-box-size-width", "new-box-size-depth", "new-box-size-height"][idx]
+              }
+              className="w-14 rounded-xl px-2 py-2.5 text-sm text-center label-number"
+              style={inputStyle}
+            />
+          ))}
           <button
             type="submit"
             data-testid="add-box-size-btn"
-            className="rounded bg-gray-800 px-3 py-2 text-sm font-medium text-white hover:bg-gray-700"
+            className="rounded-xl px-4 py-2.5 text-sm font-medium"
+            style={{
+              background: "var(--color-ink)",
+              color: "var(--color-paper)",
+            }}
           >
             Add
           </button>
         </form>
       </section>
 
+      {/* Rooms */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-gray-700">Rooms</h2>
-        <ul className="mb-3 space-y-1">
-          {rooms.map((room) => (
+        <SectionHeader>Rooms</SectionHeader>
+        <ul
+          className="mb-3 rounded-xl overflow-hidden"
+          style={{ border: "1px solid var(--color-kraft)" }}
+        >
+          {rooms.map((room, i) => (
             <li
               key={room.id}
               data-testid={`room-row-${room.name}`}
-              className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
+              className="flex items-center justify-between px-4 py-3 text-sm"
+              style={{
+                background: "var(--color-surface)",
+                borderTop: i > 0 ? "1px solid var(--color-kraft)" : "none",
+              }}
             >
-              <span>{room.name}</span>
+              <span style={{ color: "var(--color-ink)" }}>{room.name}</span>
               <button
                 type="button"
                 data-testid="delete-room-btn"
@@ -184,12 +214,18 @@ export function SettingsClient({
                   await deleteRoom(room.id);
                   router.refresh();
                 }}
-                className="text-gray-400 hover:text-red-500 text-xs"
+                className="text-xs"
+                style={{ color: "var(--color-pencil)" }}
               >
-                Delete
+                Remove
               </button>
             </li>
           ))}
+          {rooms.length === 0 && (
+            <li className="px-4 py-3 text-sm" style={{ color: "var(--color-pencil)" }}>
+              No rooms
+            </li>
+          )}
         </ul>
         <form onSubmit={handleAddRoom} className="flex gap-2">
           <input
@@ -197,17 +233,33 @@ export function SettingsClient({
             placeholder="Room name"
             required
             data-testid="new-room-name"
-            className="flex-1 rounded border px-3 py-2 text-sm"
+            className="flex-1 rounded-xl px-4 py-2.5 text-sm"
+            style={inputStyle}
           />
           <button
             type="submit"
             data-testid="add-room-btn"
-            className="rounded bg-gray-800 px-3 py-2 text-sm font-medium text-white hover:bg-gray-700"
+            className="rounded-xl px-4 py-2.5 text-sm font-medium"
+            style={{
+              background: "var(--color-ink)",
+              color: "var(--color-paper)",
+            }}
           >
             Add
           </button>
         </form>
       </section>
     </div>
+  );
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <h2
+      className="text-xs font-medium uppercase tracking-wider mb-3"
+      style={{ color: "var(--color-pencil)" }}
+    >
+      {children}
+    </h2>
   );
 }

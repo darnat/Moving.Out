@@ -1,26 +1,57 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-paper: #F4F1EB;
+  --color-ink: #1A1916;
+  --color-pencil: #7A756C;
+  --color-freight: #E8562A;
+  --color-freight-tint: #FEF0EB;
+  --color-kraft: #E2DDD4;
+  --color-surface: #FFFFFF;
+
+  --font-display: var(--font-space-grotesk), sans-serif;
+  --font-body: var(--font-dm-sans), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-paper);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+}
+
+input, select, textarea, button {
+  font-family: var(--font-body);
+}
+
+/* Box label style — used on label numbers throughout the app */
+.label-number {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+/* Focus ring consistent with freight palette */
+*:focus-visible {
+  outline: 2px solid var(--color-freight);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
