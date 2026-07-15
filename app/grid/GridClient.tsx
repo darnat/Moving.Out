@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Box, BoxSize, Room } from "@/app/generated/prisma/client";
 import { placeBox, unplaceBox } from "@/lib/actions/grid";
@@ -33,16 +33,23 @@ export function GridClient({
   const placedBoxes = boxes.filter((b) => b.gridCol !== null);
   const unplacedBoxes = boxes.filter((b) => b.gridCol === null);
 
-  function getBoxAtCell(col: number, row: number): BoxWithRelations | undefined {
-    return placedBoxes.find((b) => {
+  // Precompute a cell→box map so each render is O(placedBoxes) instead of
+  // O(placedBoxes × gridCells).
+  const cellMap = useMemo(() => {
+    const map = new Map<string, BoxWithRelations>();
+    for (const b of placedBoxes) {
       const { widthCells: w, depthCells: d } = b.boxSize;
-      return (
-        col >= b.gridCol! &&
-        col < b.gridCol! + w &&
-        row >= b.gridRow! &&
-        row < b.gridRow! + d
-      );
-    });
+      for (let dc = 0; dc < w; dc++) {
+        for (let dr = 0; dr < d; dr++) {
+          map.set(`${b.gridCol! + dc}-${b.gridRow! + dr}`, b);
+        }
+      }
+    }
+    return map;
+  }, [placedBoxes]);
+
+  function getBoxAtCell(col: number, row: number): BoxWithRelations | undefined {
+    return cellMap.get(`${col}-${row}`);
   }
 
   function handleCellClick(col: number, row: number) {
@@ -61,7 +68,12 @@ export function GridClient({
 
   async function handleConfirmPlacement() {
     if (!selectedBox || !cellInfo) return;
-    const result = await placeBox(selectedBox.id, cellInfo.col, cellInfo.row, Number(stackLevel));
+    const level = Number(stackLevel);
+    if (!level || level < 1) {
+      setError("Stack level must be 1 or higher");
+      return;
+    }
+    const result = await placeBox(selectedBox.id, cellInfo.col, cellInfo.row, level);
     if (result.error) {
       setError(result.error);
       return;
@@ -162,7 +174,8 @@ export function GridClient({
         {mode === "place" && selectedBox && cellInfo && (
           <section className="rounded-lg border p-3 space-y-3 bg-green-50">
             <p className="text-sm font-medium">
-              Place <strong>{selectedBox.labelNumber}</strong> at Col {cellInfo.col}, Row {cellInfo.row}
+              Place <strong>{selectedBox.labelNumber}</strong> at Col {cellInfo.col}, Row{" "}
+              {cellInfo.row}
             </p>
             <div>
               <label className="mb-1 block text-xs text-gray-600">Stack level</label>

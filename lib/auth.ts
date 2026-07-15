@@ -5,7 +5,10 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "./prisma";
 import { seedUserDefaults } from "./seed";
 
+const allowedEmail = process.env.ALLOWED_EMAIL?.toLowerCase() ?? "";
+
 const testProvider =
+  process.env.NODE_ENV !== "production" &&
   process.env.PLAYWRIGHT_TEST === "true"
     ? [
         Credentials({
@@ -14,7 +17,9 @@ const testProvider =
           credentials: { email: { label: "Email", type: "text" } },
           async authorize(credentials) {
             if (!credentials?.email) return null;
-            const email = String(credentials.email);
+            const email = String(credentials.email).toLowerCase();
+            // Enforce the same whitelist as Google OAuth
+            if (email !== allowedEmail) return null;
             const user = await prisma.user.upsert({
               where: { email },
               update: {},
@@ -37,7 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
-      return user.email === process.env.ALLOWED_EMAIL;
+      return user.email.toLowerCase() === allowedEmail;
     },
     async session({ session, token }) {
       if (session.user && token.sub) {

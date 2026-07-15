@@ -19,17 +19,21 @@ const DEFAULT_ROOMS = [
 ];
 
 export async function seedUserDefaults(userId: string) {
-  await Promise.all([
+  // skipDuplicates on box sizes and rooms prevents duplicate rows if this
+  // function races (e.g. two concurrent OAuth callbacks for the same new user).
+  await prisma.$transaction([
     prisma.storageUnit.upsert({
       where: { userId },
       update: {},
       create: { userId, widthCells: 10, depthCells: 20 },
     }),
-    ...DEFAULT_BOX_SIZES.map((size) =>
-      prisma.boxSize.create({ data: { userId, ...size } })
-    ),
-    ...DEFAULT_ROOMS.map((name) =>
-      prisma.room.create({ data: { userId, name } })
-    ),
+    prisma.boxSize.createMany({
+      data: DEFAULT_BOX_SIZES.map((size) => ({ userId, ...size })),
+      skipDuplicates: true,
+    }),
+    prisma.room.createMany({
+      data: DEFAULT_ROOMS.map((name) => ({ userId, name })),
+      skipDuplicates: true,
+    }),
   ]);
 }

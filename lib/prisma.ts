@@ -10,4 +10,6 @@ function createPrismaClient() {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Cache on globalThis in all environments to prevent connection pool exhaustion
+// in serverless runtimes where modules can be re-evaluated between requests.
+globalForPrisma.prisma = prisma;
