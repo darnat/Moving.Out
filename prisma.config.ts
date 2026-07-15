@@ -7,6 +7,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env.DATABASE_URL!,
+    // Migrations use the non-pooling URL (direct connection required by Prisma migrate)
+    // Runtime queries use DATABASE_URL which can be the pooler URL
+    url: process.env.DATABASE_URL_NON_POOLING ?? process.env.DATABASE_URL!,
   },
 });
