@@ -17,7 +17,7 @@ export default async function BoxPage({ params }: { params: Promise<{ id: string
   if (!box) notFound();
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-paper)" }}>
+    <div className="min-h-screen">
       <Nav />
       <main className="mx-auto max-w-lg px-4 py-8">
         <BoxDetail box={box} rooms={rooms} />

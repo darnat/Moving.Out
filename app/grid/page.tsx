@@ -15,7 +15,7 @@ export default async function GridPage() {
   const unit = storageUnit ?? { widthCells: 10, depthCells: 20, heightCells: 8 };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-paper)" }}>
+    <div className="min-h-screen">
       <Nav active="grid" />
       <main className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6">

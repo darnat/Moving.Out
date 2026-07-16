@@ -14,7 +14,7 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-paper)" }}>
+    <div className="min-h-screen">
       <Nav active="settings" />
       <main className="mx-auto max-w-lg px-4 py-8 space-y-8">
         <h1

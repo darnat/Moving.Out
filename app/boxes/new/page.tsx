@@ -13,7 +13,7 @@ export default async function NewBoxPage() {
   ]);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-paper)" }}>
+    <div className="min-h-screen">
       <Nav />
       <main className="mx-auto max-w-lg px-4 py-8">
         <h1 className="font-display font-semibold text-2xl mb-6" style={{ color: "var(--color-ink)" }}>

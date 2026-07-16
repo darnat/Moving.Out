@@ -14,7 +14,6 @@ export default function LoginPage() {
   return (
     <main
       className="flex min-h-screen flex-col items-center justify-center px-4"
-      style={{ background: "var(--color-paper)" }}
     >
       <div className="w-full max-w-xs space-y-8">
         {/* Wordmark */}

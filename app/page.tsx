@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   const retrievedCount = boxes.filter((b) => b.retrieved).length;
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-paper)" }}>
+    <div className="min-h-screen">
       <Nav active="search" />
 
       <main className="mx-auto max-w-3xl px-4 py-8 space-y-8">
