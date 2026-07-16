@@ -32,10 +32,10 @@ export default async function DashboardPage() {
         {unplacedCount > 0 && (
           <a
             href="/grid"
-            className="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium transition-opacity hover:opacity-90"
+            className="flex items-center justify-between rounded-2xl px-4 py-3.5 text-sm font-medium glass-orange"
             style={{
-              background: "var(--color-freight-tint)",
-              border: "1px solid color-mix(in srgb, var(--color-freight) 25%, transparent)",
+              background: "linear-gradient(135deg, rgba(255,107,43,0.22) 0%, rgba(255,107,43,0.06) 100%)",
+              border: "1px solid rgba(255,107,43,0.22)",
               color: "var(--color-freight)",
             }}
           >
@@ -63,14 +63,16 @@ function Stat({
 }) {
   return (
     <div
-      className="rounded-xl px-4 py-3 space-y-0.5"
+      className={`rounded-2xl px-4 py-4 space-y-1 ${accent ? "glass-orange" : "glass"}`}
       style={{
-        background: accent ? "var(--color-freight-tint)" : "var(--color-surface)",
-        border: `1px solid ${accent ? "color-mix(in srgb, var(--color-freight) 20%, transparent)" : "var(--color-kraft)"}`,
+        background: accent
+          ? "linear-gradient(145deg, rgba(255,107,43,0.18) 0%, var(--color-surface) 65%)"
+          : "var(--color-surface)",
+        border: `1px solid ${accent ? "rgba(255,107,43,0.25)" : "var(--color-kraft)"}`,
       }}
     >
       <p
-        className="font-display font-semibold text-2xl leading-none"
+        className="font-display font-bold text-3xl leading-none tabular-nums"
         style={{ color: accent ? "var(--color-freight)" : "var(--color-ink)" }}
       >
         {value}

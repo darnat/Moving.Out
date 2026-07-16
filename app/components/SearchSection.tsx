@@ -76,7 +76,7 @@ export function SearchSection({
               value={query}
               onChange={(e) => { setQuery(e.target.value); setQrError(null); }}
               data-testid="search-input"
-              className="w-full rounded-xl py-3 pl-10 pr-4 text-sm transition-shadow"
+              className="w-full rounded-2xl py-3 pl-10 pr-4 text-sm glass"
               style={{
                 background: "var(--color-surface)",
                 border: "1px solid var(--color-kraft)",
@@ -172,7 +172,7 @@ function BoxCard({
   return (
     <Link
       href={`/boxes/${box.id}`}
-      className="flex items-start gap-4 rounded-xl px-4 py-3.5 transition-colors group"
+      className="flex items-start gap-4 rounded-2xl px-4 py-4 glass card-hover group"
       style={{
         background: "var(--color-surface)",
         border: "1px solid var(--color-kraft)",

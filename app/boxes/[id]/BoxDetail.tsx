@@ -104,7 +104,7 @@ export function BoxDetail({ box, rooms }: { box: BoxWithRelations; rooms: Room[]
     <div className="space-y-6">
       {/* Box header */}
       <div
-        className="rounded-2xl p-5 space-y-3"
+        className="rounded-3xl p-5 space-y-3 glass"
         style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)" }}
       >
         <div className="flex items-start justify-between gap-3">
@@ -194,7 +194,7 @@ export function BoxDetail({ box, rooms }: { box: BoxWithRelations; rooms: Room[]
             data-testid="item-input"
             placeholder="Add another item…"
             disabled={busy}
-            className="flex-1 rounded-xl px-4 py-3 text-sm"
+            className="flex-1 rounded-2xl px-4 py-3 text-sm glass"
             style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
           />
           <button
@@ -210,7 +210,7 @@ export function BoxDetail({ box, rooms }: { box: BoxWithRelations; rooms: Room[]
         </div>
 
         {box.items.length > 0 ? (
-          <ul className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--color-kraft)" }}>
+          <ul className="rounded-2xl overflow-hidden glass" style={{ border: "1px solid var(--color-kraft)" }}>
             {box.items.map((item, i) => (
               <li
                 key={item.id}

@@ -97,7 +97,7 @@ export function FloatingActions() {
           className="w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg transition-transform duration-200 active:scale-95"
           style={{
             background: "var(--color-freight)",
-            boxShadow: "0 4px 20px color-mix(in srgb, var(--color-freight) 40%, transparent)",
+            boxShadow: "0 4px 32px rgba(255,107,43,0.55), inset 0 1px 0 rgba(255,255,255,0.25)",
             transform: open ? "rotate(45deg)" : "rotate(0deg)",
           }}
         >
@@ -122,12 +122,12 @@ function ActionItem({
   onClick?: () => void;
 }) {
   const cls =
-    "flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-medium shadow-md transition-opacity hover:opacity-90 active:scale-95 transition-transform";
+    "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium glass active:scale-95 transition-transform";
   const style = {
     background: "var(--color-surface)",
-    border: "1px solid var(--color-kraft)",
+    border: "1px solid rgba(255,255,255,0.1)",
     color: "var(--color-ink)",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.10)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.09), 0 16px 40px rgba(0,0,0,0.6)",
   };
 
   if (href) {
