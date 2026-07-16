@@ -266,9 +266,10 @@ function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opaci
   // origin + dragged ghost) don't share a clipPath definition in the SVG.
   const clipId = `fc-${item.id}-${Math.round(col*100)}-${Math.round(row*100)}-${Math.round(z0*10)}`;
 
-  // The outer silhouette of the visible 3-face cube is a 6-vertex hexagon:
-  // TL → TR → BR → BRb → BLb → BL (clockwise)
-  const hexPts: [number,number][] = [TL, TR, BR, BRb, BLb, BL];
+  // The outer silhouette of the visible 3-face cube is a 6-vertex hexagon.
+  // BR is an interior point (where all 3 faces meet) — NOT on the outer boundary.
+  // The correct clockwise boundary is: TL → TR → TRb → BRb → BLb → BL
+  const hexPts: [number,number][] = [TL, TR, TRb, BRb, BLb, BL];
   const hexPath = R > 0 ? roundFace(hexPts, [R,R,R,R,R,R]) : null;
 
   // Cushion seam across the top face mid-line
@@ -355,7 +356,7 @@ function GhostFurniture({ col,row,w,d,h,stackLevel,ox,oy,borderRadius }: {
   if (R > 0) {
     return (
       <g style={{pointerEvents:"none"}}>
-        <path d={roundFace([TL,TR,BR,BRb,BLb,BL],[R,R,R,R,R,R])} {...g}/>
+        <path d={roundFace([TL,TR,TRb,BRb,BLb,BL],[R,R,R,R,R,R])} {...g}/>
       </g>
     );
   }
