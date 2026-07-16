@@ -264,7 +264,7 @@ export function BoxDetail({ box }: { box: BoxWithRelations }) {
             {box.photos.map((photo) => (
               <div key={photo.id} className="relative group aspect-square">
                 <img
-                  src={photo.url}
+                  src={`/api/photos/${photo.id}`}
                   alt=""
                   className="w-full h-full object-cover rounded-xl"
                   style={{ border: "1px solid var(--color-kraft)" }}
