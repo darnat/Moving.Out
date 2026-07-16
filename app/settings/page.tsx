@@ -1,17 +1,16 @@
 import { auth } from "@/lib/auth";
 import { Nav } from "@/app/components/Nav";
 import { SettingsClient } from "./SettingsClient";
-import { getCachedBoxSizes, getCachedRooms, getCachedStorageUnit, getCachedFurnitureItems } from "@/lib/data";
+import { getCachedBoxSizes, getCachedRooms, getCachedStorageUnit } from "@/lib/data";
 
 export default async function SettingsPage() {
   const session = await auth();
   const userId = session!.user!.id!;
 
-  const [boxSizes, rooms, storageUnit, furnitureItems] = await Promise.all([
+  const [boxSizes, rooms, storageUnit] = await Promise.all([
     getCachedBoxSizes(userId),
     getCachedRooms(userId),
     getCachedStorageUnit(userId),
-    getCachedFurnitureItems(userId),
   ]);
 
   return (
@@ -28,7 +27,6 @@ export default async function SettingsPage() {
           boxSizes={boxSizes}
           rooms={rooms}
           storageUnit={storageUnit ?? { widthCells: 10, depthCells: 20, heightCells: 8, id: "", userId }}
-          furnitureItems={furnitureItems}
         />
       </main>
     </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export function Nav({ active }: { active?: "search" | "grid" | "settings" }) {
+export function Nav({ active }: { active?: "search" | "grid" | "settings" | "furniture" }) {
   return (
     <header
       style={{
@@ -27,6 +27,7 @@ export function Nav({ active }: { active?: "search" | "grid" | "settings" }) {
         <nav className="flex items-center gap-1">
           <NavLink href="/" label="Boxes" active={active === "search"} />
           <NavLink href="/grid" label="Map" active={active === "grid"} />
+          <NavLink href="/furniture" label="Furniture" active={active === "furniture"} />
           <NavLink href="/settings" label="Settings" active={active === "settings"} />
           <Link
             href="/boxes/new"

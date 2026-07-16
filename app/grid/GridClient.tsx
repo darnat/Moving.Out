@@ -24,10 +24,18 @@ const TW = 60; const TH = TW / 2; const LH = 50; const PAD = 28;
 
 /* ─── Colours ─── */
 const CARD = { top:"#D0AA7A", right:"#B08855", front:"#8E6B3E", stroke:"#62461A", tape:"#A07822", tapeW:2.5 };
-const FURN = { top:"#7B95AE", right:"#5C7A96", front:"#456180", stroke:"#354D65", seam:"#567A98" };
 const FLOOR_FILL = "#EDE8DF"; const FLOOR_STROKE = "#D0C8BA";
 const GHOST_FILL = "rgba(232,86,42,0.10)"; const GHOST_STROKE = "rgba(232,86,42,0.55)";
 const GHOST_FURN_FILL = "rgba(91,140,190,0.12)"; const GHOST_FURN_STROKE = "rgba(91,140,190,0.6)";
+
+/* Derive isometric face shades from a single hex color */
+function shade(hex: string, factor: number): string {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgb(${clamp(r * factor)} ${clamp(g * factor)} ${clamp(b * factor)})`;
+}
 
 /* ─── Helpers ─── */
 function ix(col: number, row: number, ox: number) { return ox + (col - row) * TW / 2; }
@@ -199,10 +207,13 @@ function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opaci
   const BRb: [number,number] = [ix(col+w, row+d, ox), iy(col+w, row+d, z0, oy)];
   const BLb: [number,number] = [ix(col,   row+d, ox), iy(col,   row+d, z0, oy)];
 
-  const topC   = isSelected ? "#9DC0E0" : FURN.top;
-  const rightC = isSelected ? "#7AA0C8" : FURN.right;
-  const frontC = isSelected ? "#5C85B0" : FURN.front;
-  const strokeC = isSelected ? "#3A6090" : FURN.stroke;
+  const base = item.color ?? "#7B95AE";
+  const sf = isSelected ? 1.28 : 1.0;
+  const topC    = shade(base, sf);
+  const rightC  = shade(base, 0.78 * sf);
+  const frontC  = shade(base, 0.62 * sf);
+  const strokeC = shade(base, 0.45);
+  const seamC   = shade(base, 0.70 * sf);
   const sw2 = isSelected ? 1.5 : 0.8;
 
   // Cushion seam: mid-line across the top face (depth direction)
@@ -224,7 +235,7 @@ function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opaci
       <polygon points={pts([TR,BR,BRb,TRb])} fill={rightC} stroke={strokeC} strokeWidth={sw2}/>
       <polygon points={pts([TL,TR,BR,BL])} fill={topC} stroke={strokeC} strokeWidth={sw2}/>
       <line x1={seamL[0]} y1={seamL[1]} x2={seamR[0]} y2={seamR[1]}
-            stroke={isSelected ? "#6A9AC0" : FURN.seam} strokeWidth={0.9} opacity={0.55}/>
+            stroke={seamC} strokeWidth={0.9} opacity={0.55}/>
       <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
             fontSize={fs} fontFamily="sans-serif" fontWeight="600"
             fill={isSelected ? "#fff" : "rgba(255,255,255,0.82)"}

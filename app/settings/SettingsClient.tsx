@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BoxSize, Room, StorageUnit, FurnitureItem } from "@/app/generated/prisma/client";
+import { BoxSize, Room, StorageUnit } from "@/app/generated/prisma/client";
 import {
   addBoxSize,
   deleteBoxSize,
@@ -10,7 +10,6 @@ import {
   deleteRoom,
   updateStorageUnit,
 } from "@/lib/actions/settings";
-import { addFurnitureItem, deleteFurnitureItem } from "@/lib/actions/furniture";
 
 const inputStyle = {
   background: "var(--color-surface)",
@@ -22,12 +21,10 @@ export function SettingsClient({
   boxSizes,
   rooms,
   storageUnit,
-  furnitureItems,
 }: {
   boxSizes: BoxSize[];
   rooms: Room[];
   storageUnit: Pick<StorageUnit, "widthCells" | "depthCells" | "heightCells" | "id" | "userId">;
-  furnitureItems: FurnitureItem[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -57,15 +54,7 @@ export function SettingsClient({
     router.refresh();
   }
 
-  async function handleAddFurniture(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    await addFurnitureItem(new FormData(form));
-    form.reset();
-    router.refresh();
-  }
-
-  function handleUpdateStorage(e: React.FormEvent<HTMLFormElement>) {
+function handleUpdateStorage(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     startTransition(async () => {
@@ -220,65 +209,6 @@ export function SettingsClient({
                   color: "var(--color-paper)",
                 }}
               >
-                Add
-              </button>
-            </div>
-          </div>
-        </form>
-      </section>
-
-      {/* Furniture */}
-      <section>
-        <SectionHeader>Furniture &amp; objects</SectionHeader>
-        <p className="text-xs mb-3" style={{ color: "var(--color-pencil)" }}>
-          Objects without contents — sofas, appliances, equipment. Use group name to link modules of the same piece.
-        </p>
-        <ul className="mb-3 rounded-xl overflow-hidden" style={{ border: "1px solid var(--color-kraft)" }}>
-          {furnitureItems.map((fi, i) => (
-            <li key={fi.id}
-                className="flex items-center justify-between px-4 py-3 text-sm"
-                style={{ background: "var(--color-surface)", borderTop: i > 0 ? "1px solid var(--color-kraft)" : "none" }}>
-              <div>
-                <span className="font-medium" style={{ color: "var(--color-ink)" }}>{fi.name}</span>
-                {fi.groupName && (
-                  <span className="ml-1.5 text-xs" style={{ color: "var(--color-pencil)" }}>({fi.groupName})</span>
-                )}
-              </div>
-              <span className="label-number text-xs mx-auto" style={{ color: "var(--color-pencil)" }}>
-                {fi.widthIn}"×{fi.depthIn}"×{fi.heightIn}"
-              </span>
-              <button type="button" onClick={async () => { await deleteFurnitureItem(fi.id); router.refresh(); }}
-                      className="text-xs" style={{ color: "var(--color-pencil)" }}>
-                Remove
-              </button>
-            </li>
-          ))}
-          {furnitureItems.length === 0 && (
-            <li className="px-4 py-3 text-sm" style={{ color: "var(--color-pencil)" }}>No furniture items</li>
-          )}
-        </ul>
-        <form onSubmit={handleAddFurniture} className="space-y-2">
-          <div className="flex gap-2">
-            <input name="name" placeholder="Module name (e.g. Left section)" required
-                   className="flex-1 rounded-xl px-3 py-2.5 text-sm" style={inputStyle} />
-            <input name="groupName" placeholder="Group (e.g. Couch)"
-                   className="flex-1 rounded-xl px-3 py-2.5 text-sm" style={inputStyle} />
-          </div>
-          <div className="flex gap-2">
-            {([
-              ["widthIn",  "W (in)"],
-              ["depthIn",  "D (in)"],
-              ["heightIn", "H (in)"],
-            ] as const).map(([name, label]) => (
-              <div key={name} className="flex-1 space-y-1">
-                <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>{label}</label>
-                <input name={name} type="number" min={1} placeholder="12" required
-                       className="w-full rounded-xl px-2 py-2.5 text-sm text-center label-number" style={inputStyle} />
-              </div>
-            ))}
-            <div className="flex items-end">
-              <button type="submit" className="rounded-xl px-4 py-2.5 text-sm font-medium"
-                      style={{ background: "var(--color-ink)", color: "var(--color-paper)" }}>
                 Add
               </button>
             </div>
