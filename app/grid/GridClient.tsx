@@ -62,7 +62,7 @@ function roundFace(points: [number,number][], radii: number[]): string {
     } else {
       const d1x = curr[0]-prev[0]; const d1y = curr[1]-prev[1]; const d1l = Math.hypot(d1x,d1y)||1;
       const d2x = next[0]-curr[0]; const d2y = next[1]-curr[1]; const d2l = Math.hypot(d2x,d2y)||1;
-      const rr = Math.min(r, d1l*0.45, d2l*0.45);
+      const rr = Math.min(r, d1l*0.49, d2l*0.49);
       const p1x = curr[0]-(d1x/d1l)*rr; const p1y = curr[1]-(d1y/d1l)*rr;
       const p2x = curr[0]+(d2x/d2l)*rr; const p2y = curr[1]+(d2y/d2l)*rr;
       parts.push(`${i === 0 ? "M" : "L"} ${p1x.toFixed(1)} ${p1y.toFixed(1)}`);
@@ -272,8 +272,8 @@ function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opaci
        style={{ cursor: inPlaceMode ? "default" : "pointer" }}>
       {R > 0 ? (
         <>
-          <path d={roundFace([BL,BR,BRb,BLb],[R,R,0,0])} fill={frontC} stroke={strokeC} strokeWidth={sw2}/>
-          <path d={roundFace([TR,BR,BRb,TRb],[R,R,0,0])} fill={rightC} stroke={strokeC} strokeWidth={sw2}/>
+          <path d={roundFace([BL,BR,BRb,BLb],[R,R,R,R])} fill={frontC} stroke={strokeC} strokeWidth={sw2}/>
+          <path d={roundFace([TR,BR,BRb,TRb],[R,R,R,R])} fill={rightC} stroke={strokeC} strokeWidth={sw2}/>
           <path d={roundFace([TL,TR,BR,BL],[R,R,R,R])}   fill={topC}   stroke={strokeC} strokeWidth={sw2}/>
         </>
       ) : (
@@ -334,8 +334,8 @@ function GhostFurniture({ col,row,w,d,h,stackLevel,ox,oy,borderRadius }: {
     <g style={{pointerEvents:"none"}}>
       {R > 0 ? (
         <>
-          <path d={roundFace([BL,BR,BRb,BLb],[R,R,0,0])} {...g}/>
-          <path d={roundFace([TR,BR,BRb,TRb],[R,R,0,0])} {...g}/>
+          <path d={roundFace([BL,BR,BRb,BLb],[R,R,R,R])} {...g}/>
+          <path d={roundFace([TR,BR,BRb,TRb],[R,R,R,R])} {...g}/>
           <path d={roundFace([TL,TR,BR,BL],[R,R,R,R])}   {...g}/>
         </>
       ) : (
