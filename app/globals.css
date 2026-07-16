@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: #F4F1EB;
-  --color-ink: #1A1916;
-  --color-pencil: #7A756C;
-  --color-freight: #E8562A;
-  --color-freight-tint: #FEF0EB;
-  --color-kraft: #E2DDD4;
-  --color-surface: #FFFFFF;
+  --color-paper: #0C1018;
+  --color-surface: #141924;
+  --color-ink: #ECE8E0;
+  --color-pencil: #6B7088;
+  --color-freight: #FF6B2B;
+  --color-freight-tint: #201411;
+  --color-kraft: #1E2535;
 
   --font-display: var(--font-space-grotesk), sans-serif;
   --font-body: var(--font-dm-sans), sans-serif;
@@ -40,13 +40,14 @@ input, select, textarea, button {
 /* Box label style — used on label numbers throughout the app */
 .label-number {
   font-family: var(--font-mono);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
+  text-shadow: 0 0 12px rgba(255, 107, 43, 0.35);
 }
 
-/* Focus ring consistent with freight palette */
+/* Focus: soft amber glow instead of hard outline */
 *:focus-visible {
-  outline: 2px solid var(--color-freight);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 107, 43, 0.28);
 }
 
 button {

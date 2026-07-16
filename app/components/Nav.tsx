@@ -3,14 +3,15 @@ import Link from "next/link";
 export function Nav({ active }: { active?: "search" | "grid" | "settings" }) {
   return (
     <header
-      style={{ borderBottom: "1px solid var(--color-kraft)" }}
+      style={{
+        borderBottom: "1px solid var(--color-kraft)",
+        background: "color-mix(in srgb, var(--color-paper) 80%, transparent)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+      }}
       className="sticky top-0 z-10"
-      // backdrop-blur gives a frosted-paper effect on scroll
     >
-      <div
-        className="mx-auto max-w-3xl px-4 flex items-center justify-between h-14"
-        style={{ background: "color-mix(in srgb, var(--color-paper) 92%, transparent)" }}
-      >
+      <div className="mx-auto max-w-3xl px-4 flex items-center justify-between h-14">
         <Link
           href="/"
           className="flex items-center gap-2 font-display font-semibold text-base tracking-tight"
