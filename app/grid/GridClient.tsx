@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useTransition } from "react";
+import { useState, useRef, useEffect, useTransition, useOptimistic } from "react";
 import { useRouter } from "next/navigation";
 import { Box, BoxSize, Room } from "@/app/generated/prisma/client";
 import { placeBox, unplaceBox } from "@/lib/actions/grid";
@@ -176,8 +176,14 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
   const [suggestion,  setSuggestion]  = useState<{ level: number; onBox: string } | null>(null);
   const [isDragging,  setIsDragging]  = useState(false);
 
-  const placedBoxes   = boxes.filter(b => b.gridCol !== null);
-  const unplacedBoxes = boxes.filter(b => b.gridCol === null);
+  const [optimisticBoxes, applyOptimistic] = useOptimistic(
+    boxes,
+    (current: BoxWithRelations[], patch: { id: string; gridCol: number; gridRow: number; stackLevel: number }) =>
+      current.map(b => b.id === patch.id ? { ...b, ...patch } : b)
+  );
+
+  const placedBoxes   = optimisticBoxes.filter(b => b.gridCol !== null);
+  const unplacedBoxes = optimisticBoxes.filter(b => b.gridCol === null);
   const sortedBoxes   = [...placedBoxes].sort((a, b) => {
     const da = a.gridCol! + a.gridRow!; const db = b.gridCol! + b.gridRow!;
     return da !== db ? da - db : (a.stackLevel ?? 1) - (b.stackLevel ?? 1);
@@ -197,13 +203,23 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
     return () => window.removeEventListener("keydown", h);
   }, [mode]);
 
-  /* ── Place immediately ── */
-  async function placeNow(boxId: string, col: number, row: number, level: number) {
-    const result = await placeBox(boxId, col, row, level);
-    if (result.error) { setError(result.error); return false; }
-    setSelectedBox(null); setMode("view"); setHoverCell(null);
-    setSuggestion(null); setError(""); router.refresh();
-    return true;
+  /* ── Commit placement: optimistic-first, snap back on failure ── */
+  function commitPlacement(boxId: string, col: number, row: number, level: number) {
+    startTransition(async () => {
+      // All of these fire before the first await → one synchronous render
+      applyOptimistic({ id: boxId, gridCol: col, gridRow: row, stackLevel: level });
+      setIsDragging(false);
+      setSelectedBox(null); setMode("view"); setHoverCell(null); setSuggestion(null);
+
+      const result = await placeBox(boxId, col, row, level);
+      if (result.error) {
+        // useOptimistic auto-reverts when the transition ends → box snaps back
+        setError(result.error);
+        return;
+      }
+      setError("");
+      router.refresh();
+    });
   }
 
   /* ── Hover (non-drag place mode) ── */
@@ -223,8 +239,7 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
   function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
     if (mode === "view") { setInfoBox(null); return; }
     if (isDragging || !selectedBox || !hoverCell) return;
-    const level = suggestion?.level ?? 1;
-    startTransition(async () => { await placeNow(selectedBox.id, hoverCell.col, hoverCell.row, level); });
+    commitPlacement(selectedBox.id, hoverCell.col, hoverCell.row, suggestion?.level ?? 1);
   }
 
   /* ── Drag: document-level listeners avoid stale-closure issues ── */
@@ -267,9 +282,7 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
     function onUp() {
       document.removeEventListener("pointermove", onMove, true);
       document.removeEventListener("pointerup",   onUp,   true);
-      setIsDragging(false);
-      const level = sug?.level ?? 1;
-      startTransition(async () => { await placeNow(boxId, snap.col, snap.row, level); });
+      commitPlacement(boxId, snap.col, snap.row, sug?.level ?? 1);
     }
 
     document.addEventListener("pointermove", onMove, true);
