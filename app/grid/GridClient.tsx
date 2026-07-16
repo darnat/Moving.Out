@@ -225,7 +225,10 @@ export function GridClient({
     setHoverCell(snap);
     const suggestion = findStackSuggestion(snap.col, snap.row);
     setStackSuggestion(suggestion);
-    if (suggestion) setStackLevel(String(suggestion.level));
+    // Only auto-update level while position isn't locked; reset to floor when over empty space
+    if (!placeTarget) {
+      setStackLevel(suggestion ? String(suggestion.level) : "1");
+    }
   }
 
   function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
@@ -257,10 +260,24 @@ export function GridClient({
     startTransition(async () => { await setRetrieved(infoBox.id, true); setInfoBox(null); router.refresh(); });
   }
 
+  function handleMoveBox(box: BoxWithRelations) {
+    setSelectedBox(box);
+    setInfoBox(null);
+    setMode("place");
+    setPlaceTarget(null);
+    setHoverCell(null);
+    setStackSuggestion(null);
+    setStackLevel("1");
+    setError("");
+  }
+
   function cancelPlace() {
     setSelectedBox(null); setPlaceTarget(null); setHoverCell(null);
     setStackSuggestion(null); setMode("view"); setError("");
   }
+
+  // True when the box being "placed" is actually a repositioning of an already-placed box
+  const isMoving = mode === "place" && !!selectedBox && selectedBox.gridCol !== null;
 
   /* ── Back walls ── */
   function renderWalls() {
@@ -334,16 +351,30 @@ export function GridClient({
         >
           {renderWalls()}
           {floorTiles}
-          {sortedBoxes.map((box) => (
-            <BoxShape
-              key={box.id}
-              box={box}
-              ox={OX} oy={OY}
-              isSelected={infoBox?.id === box.id}
-              onSelect={() => { if (mode === "view") setInfoBox(box); }}
-              inPlaceMode={mode === "place"}
-            />
-          ))}
+          {sortedBoxes
+            .filter((b) => !(isMoving && b.id === selectedBox?.id))
+            .map((box) => (
+              <BoxShape
+                key={box.id}
+                box={box}
+                ox={OX} oy={OY}
+                isSelected={infoBox?.id === box.id}
+                onSelect={() => { if (mode === "view") setInfoBox(box); }}
+                inPlaceMode={mode === "place"}
+              />
+            ))}
+          {/* Moving box shown dimmed at its original position */}
+          {isMoving && selectedBox && selectedBox.gridCol !== null && (
+            <g opacity={0.25} style={{ pointerEvents: "none" }}>
+              <BoxShape
+                box={selectedBox}
+                ox={OX} oy={OY}
+                isSelected={false}
+                onSelect={() => {}}
+                inPlaceMode={true}
+              />
+            </g>
+          )}
           {ghostTarget && selectedBox && (
             <GhostBox
               col={ghostTarget.col}
@@ -360,15 +391,15 @@ export function GridClient({
 
       {/* ── Sidebar ── */}
       <div className="w-full lg:w-64 space-y-4 shrink-0">
-        {/* Place mode hint */}
+        {/* Place / move hint */}
         {mode === "place" && selectedBox && (
           <div className="rounded-xl px-3 py-2 text-xs leading-relaxed"
                style={{ background: "var(--color-freight-tint)",
                         border: "1px solid color-mix(in srgb, var(--color-freight) 30%, transparent)",
                         color: "var(--color-freight)" }}>
-            Move mouse over the floor to position{" "}
-            <span className="font-bold label-number">{selectedBox.labelNumber}</span>.
-            Click to lock position.
+            {isMoving ? "Moving" : "Placing"}{" "}
+            <span className="font-bold label-number">{selectedBox.labelNumber}</span> —
+            hover to snap, click to lock position.
           </div>
         )}
 
@@ -461,16 +492,33 @@ export function GridClient({
 
         {/* Box info */}
         {infoBox && mode === "view" && (
-          <div data-testid="cell-info-panel" className="rounded-xl p-4 space-y-2"
+          <div data-testid="cell-info-panel" className="rounded-xl p-4 space-y-3"
                style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)" }}>
             <div>
               <p className="label-number font-bold text-lg leading-none" style={{ color: "var(--color-ink)" }}>{infoBox.labelNumber}</p>
               <p className="text-xs mt-1" style={{ color: "var(--color-pencil)" }}>{infoBox.room.name} · {infoBox.boxSize.name}</p>
               <p className="text-xs mt-0.5" style={{ color: "var(--color-pencil)" }}>
-                {Math.round(infoBox.gridCol! * 12)}" × {Math.round(infoBox.gridRow! * 12)}" · Level {infoBox.stackLevel}
+                {Math.round(infoBox.gridCol! * 12)}" from left · {Math.round(infoBox.gridRow! * 12)}" from back · Level {infoBox.stackLevel}
               </p>
             </div>
-            <div className="flex gap-2 pt-1">
+
+            {/* Move button */}
+            <button
+              onClick={() => handleMoveBox(infoBox)}
+              disabled={isPending}
+              className="w-full rounded-lg py-2.5 text-sm font-medium flex items-center justify-center gap-2"
+              style={{ background: "var(--color-freight)", color: "#fff" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="5 9 2 12 5 15" /><polyline points="9 5 12 2 15 5" />
+                <polyline points="15 19 12 22 9 19" /><polyline points="19 9 22 12 19 15" />
+                <line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" />
+              </svg>
+              Move box
+            </button>
+
+            {/* Secondary actions */}
+            <div className="flex gap-2">
               <button
                 onClick={handleRetrieve}
                 data-testid="retrieve-btn"
@@ -485,9 +533,9 @@ export function GridClient({
                 data-testid="unplace-btn"
                 disabled={isPending}
                 className="rounded-lg px-3 py-2 text-xs flex items-center gap-1.5"
-                style={{ border: "1px solid var(--color-kraft)", color: "var(--color-pencil)" }}
+                style={{ border: "1px solid color-mix(in srgb, var(--color-freight) 30%, transparent)", color: "var(--color-freight)" }}
               >
-                {isPending ? <GridSpinner /> : null} Unplace
+                {isPending ? <GridSpinner /> : null} Remove
               </button>
             </div>
           </div>
