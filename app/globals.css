@@ -43,11 +43,33 @@ html {
 
 body {
   min-height: 100%;
-  background:
-    radial-gradient(ellipse 75% 55% at 8% 78%,  rgba(255, 107, 43, 0.16) 0%, transparent 58%),
-    radial-gradient(ellipse 55% 40% at 92% 10%,  rgba(255, 107, 43, 0.09) 0%, transparent 52%),
-    radial-gradient(ellipse 40% 35% at 55% 45%,  rgba(255, 130, 60, 0.04) 0%, transparent 50%),
-    #060608;
+  /*
+    Layer order (first = topmost):
+    1. Isometric diamond grid — ±26.57° matches the storage map's projection angle
+       so the background and the map share the same geometry. 0.5px lines at 3%
+       white, 30px perpendicular spacing. Barely visible; felt more than seen.
+    2-4. Warm orange ambient radials — the canvas the glass blurs against.
+    5.   Base colour.
+  */
+  background-image:
+    repeating-linear-gradient(
+       26.57deg,
+       rgba(255, 255, 255, 0.03) 0,
+       rgba(255, 255, 255, 0.03) 0.5px,
+       transparent 0.5px,
+       transparent 30px
+    ),
+    repeating-linear-gradient(
+      -26.57deg,
+       rgba(255, 255, 255, 0.03) 0,
+       rgba(255, 255, 255, 0.03) 0.5px,
+       transparent 0.5px,
+       transparent 30px
+    ),
+    radial-gradient(ellipse 75% 55% at  8% 78%, rgba(255, 107, 43, 0.16) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 40% at 92% 10%, rgba(255, 107, 43, 0.09) 0%, transparent 52%),
+    radial-gradient(ellipse 40% 35% at 55% 45%, rgba(255, 130, 60, 0.04) 0%, transparent 50%);
+  background-color: #060608;
   background-attachment: fixed;
   color: var(--color-ink);
   font-family: var(--font-body);
