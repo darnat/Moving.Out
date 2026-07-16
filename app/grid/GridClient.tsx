@@ -235,13 +235,13 @@ function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opaci
   const w = item.widthIn / 12; const d = item.depthIn / 12; const h = item.heightIn / 12;
   const z0 = (item.stackLevel ?? 1) - 1; const z1 = z0 + h;
 
-  const TL: [number,number] = [ix(col,   row,   ox), iy(col,   row,   z1, oy)];
-  const TR: [number,number] = [ix(col+w, row,   ox), iy(col+w, row,   z1, oy)];
-  const BR: [number,number] = [ix(col+w, row+d, ox), iy(col+w, row+d, z1, oy)];
-  const BL: [number,number] = [ix(col,   row+d, ox), iy(col,   row+d, z1, oy)];
-  const TRb: [number,number] = [ix(col+w, row,   ox), iy(col+w, row,   z0, oy)];
+  const TL:  [number,number] = [ix(col,   row,   ox), iy(col,   row,   z1, oy)];
+  const TR:  [number,number] = [ix(col+w, row,   ox), iy(col+w, row,   z1, oy)];
+  const BR:  [number,number] = [ix(col+w, row+d, ox), iy(col+w, row+d, z1, oy)];
   const BRb: [number,number] = [ix(col+w, row+d, ox), iy(col+w, row+d, z0, oy)];
   const BLb: [number,number] = [ix(col,   row+d, ox), iy(col,   row+d, z0, oy)];
+  const BL:  [number,number] = [ix(col,   row+d, ox), iy(col,   row+d, z1, oy)];
+  const TRb: [number,number] = [ix(col+w, row,   ox), iy(col+w, row,   z0, oy)];
 
   const base = item.color ?? "#7B95AE";
   const sf = isSelected ? 1.28 : 1.0;
@@ -251,10 +251,7 @@ function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opaci
   const strokeC = shade(base, 0.45);
   const seamC   = shade(base, 0.70 * sf);
   const sw2 = isSelected ? 1.5 : 0.8;
-
-  // Cushion seam: mid-line across the top face (depth direction)
-  const seamL: [number,number] = [(TL[0]+BL[0])/2, (TL[1]+BL[1])/2];
-  const seamR: [number,number] = [(TR[0]+BR[0])/2, (TR[1]+BR[1])/2];
+  const textFill = labelColor(base, sf);
 
   const lx = (TL[0]+TR[0]+BR[0]+BL[0])/4;
   const ly = (TL[1]+TR[1]+BR[1]+BL[1])/4;
@@ -264,27 +261,52 @@ function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opaci
   const label = item.groupName ? item.groupName.slice(0, 9) : item.name.slice(0, 9);
 
   const R = (item.borderRadius / 100) * 500;
-  const textFill = labelColor(base, sf);
+
+  // Unique clip id — encodes position so two instances of the same item (dimmed
+  // origin + dragged ghost) don't share a clipPath definition in the SVG.
+  const clipId = `fc-${item.id}-${Math.round(col*100)}-${Math.round(row*100)}-${Math.round(z0*10)}`;
+
+  // The outer silhouette of the visible 3-face cube is a 6-vertex hexagon:
+  // TL → TR → BR → BRb → BLb → BL (clockwise)
+  const hexPts: [number,number][] = [TL, TR, BR, BRb, BLb, BL];
+  const hexPath = R > 0 ? roundFace(hexPts, [R,R,R,R,R,R]) : null;
+
+  // Cushion seam across the top face mid-line
+  const seamL: [number,number] = [(TL[0]+BL[0])/2, (TL[1]+BL[1])/2];
+  const seamR: [number,number] = [(TR[0]+BR[0])/2, (TR[1]+BR[1])/2];
 
   return (
     <g opacity={opacity}
        onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onSelect(); }}
        style={{ cursor: inPlaceMode ? "default" : "pointer" }}>
-      {R > 0 ? (
+      {hexPath ? (
         <>
-          <path d={roundFace([BL,BR,BRb,BLb],[R,R,R,R])} fill={frontC} stroke={strokeC} strokeWidth={sw2}/>
-          <path d={roundFace([TR,BR,BRb,TRb],[R,R,R,R])} fill={rightC} stroke={strokeC} strokeWidth={sw2}/>
-          <path d={roundFace([TL,TR,BR,BL],[R,R,R,R])}   fill={topC}   stroke={strokeC} strokeWidth={sw2}/>
+          {/* Clip region = the rounded outer silhouette */}
+          <defs>
+            <clipPath id={clipId}>
+              <path d={hexPath}/>
+            </clipPath>
+          </defs>
+          {/* Three sharp-cornered face fills clipped to the rounded hex */}
+          <g clipPath={`url(#${clipId})`}>
+            <polygon points={pts([BL,BR,BRb,BLb])} fill={frontC}/>
+            <polygon points={pts([TR,BR,BRb,TRb])} fill={rightC}/>
+            <polygon points={pts([TL,TR,BR,BL])}   fill={topC}/>
+            <line x1={seamL[0]} y1={seamL[1]} x2={seamR[0]} y2={seamR[1]}
+                  stroke={seamC} strokeWidth={0.9} opacity={0.55}/>
+          </g>
+          {/* Single stroke on the unified outer rounded boundary */}
+          <path d={hexPath} fill="none" stroke={strokeC} strokeWidth={sw2}/>
         </>
       ) : (
         <>
           <polygon points={pts([BL,BR,BRb,BLb])} fill={frontC} stroke={strokeC} strokeWidth={sw2}/>
           <polygon points={pts([TR,BR,BRb,TRb])} fill={rightC} stroke={strokeC} strokeWidth={sw2}/>
           <polygon points={pts([TL,TR,BR,BL])}   fill={topC}   stroke={strokeC} strokeWidth={sw2}/>
+          <line x1={seamL[0]} y1={seamL[1]} x2={seamR[0]} y2={seamR[1]}
+                stroke={seamC} strokeWidth={0.9} opacity={0.55}/>
         </>
       )}
-      <line x1={seamL[0]} y1={seamL[1]} x2={seamR[0]} y2={seamR[1]}
-            stroke={seamC} strokeWidth={0.9} opacity={0.55}/>
       <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
             fontSize={fs} fontFamily="sans-serif" fontWeight="600"
             fill={textFill}
@@ -324,27 +346,24 @@ function GhostFurniture({ col,row,w,d,h,stackLevel,ox,oy,borderRadius }: {
   const TL:  [number,number]=[ix(col,  row,  ox),iy(col,  row,  z1,oy)];
   const TR:  [number,number]=[ix(col+w,row,  ox),iy(col+w,row,  z1,oy)];
   const BR:  [number,number]=[ix(col+w,row+d,ox),iy(col+w,row+d,z1,oy)];
-  const BL:  [number,number]=[ix(col,  row+d,ox),iy(col,  row+d,z1,oy)];
-  const TRb: [number,number]=[ix(col+w,row,  ox),iy(col+w,row,  z0,oy)];
   const BRb: [number,number]=[ix(col+w,row+d,ox),iy(col+w,row+d,z0,oy)];
   const BLb: [number,number]=[ix(col,  row+d,ox),iy(col,  row+d,z0,oy)];
+  const BL:  [number,number]=[ix(col,  row+d,ox),iy(col,  row+d,z1,oy)];
+  const TRb: [number,number]=[ix(col+w,row,  ox),iy(col+w,row,  z0,oy)];
   const g={fill:GHOST_FURN_FILL,stroke:GHOST_FURN_STROKE,strokeWidth:1.5,strokeDasharray:"5,3"};
   const R=(borderRadius/100)*500;
+  if (R > 0) {
+    return (
+      <g style={{pointerEvents:"none"}}>
+        <path d={roundFace([TL,TR,BR,BRb,BLb,BL],[R,R,R,R,R,R])} {...g}/>
+      </g>
+    );
+  }
   return (
     <g style={{pointerEvents:"none"}}>
-      {R > 0 ? (
-        <>
-          <path d={roundFace([BL,BR,BRb,BLb],[R,R,R,R])} {...g}/>
-          <path d={roundFace([TR,BR,BRb,TRb],[R,R,R,R])} {...g}/>
-          <path d={roundFace([TL,TR,BR,BL],[R,R,R,R])}   {...g}/>
-        </>
-      ) : (
-        <>
-          <polygon points={pts([BL,BR,BRb,BLb])} {...g}/>
-          <polygon points={pts([TR,BR,BRb,TRb])} {...g}/>
-          <polygon points={pts([TL,TR,BR,BL])}   {...g}/>
-        </>
-      )}
+      <polygon points={pts([BL,BR,BRb,BLb])} {...g}/>
+      <polygon points={pts([TR,BR,BRb,TRb])} {...g}/>
+      <polygon points={pts([TL,TR,BR,BL])}   {...g}/>
     </g>
   );
 }
