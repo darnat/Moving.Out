@@ -18,13 +18,13 @@ const inputStyle = {
 export function NewFurnitureForm() {
   const router = useRouter();
   const [color, setColor] = useState(PRESETS[0]);
-  const [rounded, setRounded] = useState(false);
+  const [borderRadius, setBorderRadius] = useState(0);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     fd.set("color", color);
-    fd.set("rounded", String(rounded));
+    fd.set("borderRadius", String(borderRadius));
     await addFurnitureItem(fd);
     router.push("/furniture");
   }
@@ -125,24 +125,23 @@ export function NewFurnitureForm() {
       </div>
 
       {/* Rounded edges */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>Rounded edges</p>
-          <p className="text-xs mt-0.5" style={{ color: "var(--color-pencil)" }}>Softer corners on the map</p>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>
+            Roundness
+          </label>
+          <span className="label-number text-xs" style={{ color: "var(--color-pencil)" }}>
+            {borderRadius === 0 ? "Sharp" : borderRadius === 100 ? "Full" : `${borderRadius}%`}
+          </span>
         </div>
-        <button
-          type="button"
-          onClick={() => setRounded(r => !r)}
-          className="relative w-11 h-6 rounded-full transition-colors"
-          style={{ background: rounded ? "var(--color-freight)" : "var(--color-kraft)" }}
-          role="switch"
-          aria-checked={rounded}
-        >
-          <span
-            className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"
-            style={{ transform: rounded ? "translateX(20px)" : "translateX(0)" }}
-          />
-        </button>
+        <input
+          type="range"
+          min={0} max={100} step={5}
+          value={borderRadius}
+          onChange={(e) => setBorderRadius(Number(e.target.value))}
+          className="w-full accent-freight"
+          style={{ accentColor: "var(--color-freight)" }}
+        />
       </div>
 
       {/* Actions */}

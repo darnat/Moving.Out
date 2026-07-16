@@ -29,7 +29,7 @@ export function FurnitureDetail({ item }: { item: FurnitureItem }) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [color, setColor] = useState(item.color);
-  const [rounded, setRounded] = useState(item.rounded);
+  const [borderRadius, setBorderRadius] = useState(item.borderRadius);
   const [name, setName] = useState(item.name);
   const [groupName, setGroupName] = useState(item.groupName ?? "");
   const [widthIn, setWidthIn] = useState(item.widthIn);
@@ -51,10 +51,9 @@ export function FurnitureDetail({ item }: { item: FurnitureItem }) {
     });
   }
 
-  async function handleRoundedChange(val: boolean) {
-    setRounded(val);
-    await run("rounded", async () => {
-      await updateFurnitureItem(item.id, { rounded: val });
+  async function handleBorderRadiusCommit(val: number) {
+    await run("borderRadius", async () => {
+      await updateFurnitureItem(item.id, { borderRadius: val });
       router.refresh();
     });
   }
@@ -66,7 +65,7 @@ export function FurnitureDetail({ item }: { item: FurnitureItem }) {
         name,
         groupName: groupName.trim() || null,
         color,
-        rounded,
+        borderRadius,
         widthIn,
         depthIn,
         heightIn,
@@ -163,28 +162,27 @@ export function FurnitureDetail({ item }: { item: FurnitureItem }) {
         </div>
       </section>
 
-      {/* Rounded edges */}
-      <section className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>
-            Rounded edges {loading === "rounded" && <Spinner />}
-          </p>
-          <p className="text-xs mt-0.5" style={{ color: "var(--color-pencil)" }}>Softer corners on the map</p>
+      {/* Roundness slider */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>
+            Roundness {loading === "borderRadius" && <Spinner />}
+          </h2>
+          <span className="label-number text-xs" style={{ color: "var(--color-pencil)" }}>
+            {borderRadius === 0 ? "Sharp" : borderRadius === 100 ? "Full" : `${borderRadius}%`}
+          </span>
         </div>
-        <button
-          type="button"
+        <input
+          type="range"
+          min={0} max={100} step={5}
+          value={borderRadius}
           disabled={busy}
-          onClick={() => handleRoundedChange(!rounded)}
-          className="relative w-11 h-6 rounded-full transition-colors disabled:opacity-50"
-          style={{ background: rounded ? "var(--color-freight)" : "var(--color-kraft)" }}
-          role="switch"
-          aria-checked={rounded}
-        >
-          <span
-            className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"
-            style={{ transform: rounded ? "translateX(20px)" : "translateX(0)" }}
-          />
-        </button>
+          onChange={(e) => setBorderRadius(Number(e.target.value))}
+          onMouseUp={(e) => handleBorderRadiusCommit(Number((e.target as HTMLInputElement).value))}
+          onTouchEnd={(e) => handleBorderRadiusCommit(Number((e.target as HTMLInputElement).value))}
+          className="w-full disabled:opacity-50"
+          style={{ accentColor: "var(--color-freight)" }}
+        />
       </section>
 
       {/* Edit form */}

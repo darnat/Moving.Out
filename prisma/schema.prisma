@@ -116,9 +116,9 @@ model FurnitureItem {
   userId     String
   name       String
   groupName  String?
-  color      String  @default("#7B95AE")
-  rounded    Boolean @default(false)
-  widthIn    Float
+  color        String  @default("#7B95AE")
+  borderRadius Int     @default(0)
+  widthIn      Float
   depthIn    Float
   heightIn   Float
   gridCol    Float?

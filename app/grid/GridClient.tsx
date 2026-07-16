@@ -263,14 +263,14 @@ function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opaci
   const fs  = Math.max(6, Math.min(10, eRx * 0.6));
   const label = item.groupName ? item.groupName.slice(0, 9) : item.name.slice(0, 9);
 
-  const R = 7;
+  const R = (item.borderRadius / 100) * 500;
   const textFill = labelColor(base, sf);
 
   return (
     <g opacity={opacity}
        onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onSelect(); }}
        style={{ cursor: inPlaceMode ? "default" : "pointer" }}>
-      {item.rounded ? (
+      {R > 0 ? (
         <>
           <path d={roundFace([BL,BR,BRb,BLb],[R,R,0,0])} fill={frontC} stroke={strokeC} strokeWidth={sw2}/>
           <path d={roundFace([TR,BR,BRb,TRb],[R,R,0,0])} fill={rightC} stroke={strokeC} strokeWidth={sw2}/>
@@ -317,8 +317,8 @@ function GhostBox({ col,row,w,d,h,stackLevel,ox,oy }: {
   );
 }
 
-function GhostFurniture({ col,row,w,d,h,stackLevel,ox,oy,rounded }: {
-  col:number;row:number;w:number;d:number;h:number;stackLevel:number;ox:number;oy:number;rounded:boolean;
+function GhostFurniture({ col,row,w,d,h,stackLevel,ox,oy,borderRadius }: {
+  col:number;row:number;w:number;d:number;h:number;stackLevel:number;ox:number;oy:number;borderRadius:number;
 }) {
   const z0=stackLevel-1; const z1=z0+h;
   const TL:  [number,number]=[ix(col,  row,  ox),iy(col,  row,  z1,oy)];
@@ -329,10 +329,10 @@ function GhostFurniture({ col,row,w,d,h,stackLevel,ox,oy,rounded }: {
   const BRb: [number,number]=[ix(col+w,row+d,ox),iy(col+w,row+d,z0,oy)];
   const BLb: [number,number]=[ix(col,  row+d,ox),iy(col,  row+d,z0,oy)];
   const g={fill:GHOST_FURN_FILL,stroke:GHOST_FURN_STROKE,strokeWidth:1.5,strokeDasharray:"5,3"};
-  const R=7;
+  const R=(borderRadius/100)*500;
   return (
     <g style={{pointerEvents:"none"}}>
-      {rounded ? (
+      {R > 0 ? (
         <>
           <path d={roundFace([BL,BR,BRb,BLb],[R,R,0,0])} {...g}/>
           <path d={roundFace([TR,BR,BRb,TRb],[R,R,0,0])} {...g}/>
@@ -738,7 +738,7 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
           {!isDragging && hoverCell && selectedFurniture && mode==="place" && (
             <GhostFurniture col={hoverCell.col} row={hoverCell.row}
                             w={selectedFurniture.widthIn/12} d={selectedFurniture.depthIn/12} h={selectedFurniture.heightIn/12}
-                            stackLevel={effectiveLevel} ox={OX} oy={OY} rounded={selectedFurniture.rounded}/>
+                            stackLevel={effectiveLevel} ox={OX} oy={OY} borderRadius={selectedFurniture.borderRadius}/>
           )}
 
           {renderBoxOverlay()}

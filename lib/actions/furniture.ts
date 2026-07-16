@@ -12,9 +12,9 @@ export async function addFurnitureItem(formData: FormData) {
       userId,
       name:      formData.get("name")      as string,
       groupName: (formData.get("groupName") as string) || null,
-      color:     (formData.get("color")     as string) || "#7B95AE",
-      rounded:   formData.get("rounded") === "true",
-      widthIn:   Math.max(1, Number(formData.get("widthIn"))),
+      color:        (formData.get("color") as string) || "#7B95AE",
+      borderRadius: Math.max(0, Math.min(100, Number(formData.get("borderRadius")) || 0)),
+      widthIn:      Math.max(1, Number(formData.get("widthIn"))),
       depthIn:   Math.max(1, Number(formData.get("depthIn"))),
       heightIn:  Math.max(1, Number(formData.get("heightIn"))),
     },
@@ -26,7 +26,7 @@ export async function updateFurnitureItem(id: string, data: {
   name?: string;
   groupName?: string | null;
   color?: string;
-  rounded?: boolean;
+  borderRadius?: number;
   widthIn?: number;
   depthIn?: number;
   heightIn?: number;
