@@ -6,13 +6,19 @@ import { prisma } from "@/lib/prisma";
 
 export async function addBoxSize(formData: FormData) {
   const userId = await requireUserId();
+  const widthIn  = Math.max(1, Number(formData.get("widthIn")));
+  const depthIn  = Math.max(1, Number(formData.get("depthIn")));
+  const heightIn = Math.max(1, Number(formData.get("heightIn")));
   await prisma.boxSize.create({
     data: {
       userId,
       name: formData.get("name") as string,
-      widthCells: Number(formData.get("widthCells")),
-      depthCells: Number(formData.get("depthCells")),
-      heightCells: Number(formData.get("heightCells")),
+      widthIn,
+      depthIn,
+      heightIn,
+      widthCells:  Math.max(1, Math.ceil(widthIn  / 12)),
+      depthCells:  Math.max(1, Math.ceil(depthIn  / 12)),
+      heightCells: Math.max(1, Math.ceil(heightIn / 12)),
     },
   });
   revalidatePath("/settings");

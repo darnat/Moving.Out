@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { issueSignedToken, presignUrl } from "@vercel/blob";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -11,15 +12,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   });
   if (!photo) return new Response("Not found", { status: 404 });
 
-  const upstream = await fetch(photo.url, {
-    headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
-  });
-  if (!upstream.ok) return new Response("Blob unavailable", { status: 502 });
+  // pathname = everything after the host (e.g. "photo-abc123.jpg")
+  const pathname = new URL(photo.url).pathname.slice(1);
 
-  return new Response(upstream.body, {
-    headers: {
-      "Content-Type": upstream.headers.get("Content-Type") ?? "image/jpeg",
-      "Cache-Control": "private, max-age=3600",
-    },
+  const signedToken = await issueSignedToken({
+    operations: ["get"],
+    pathname,
+    validUntil: Date.now() + 60 * 60 * 1000, // 1 hour
   });
+
+  const { presignedUrl } = await presignUrl(signedToken, {
+    operation: "get",
+    pathname,
+    access: "private",
+  });
+
+  return Response.redirect(presignedUrl, 302);
 }

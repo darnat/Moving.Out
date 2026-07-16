@@ -129,7 +129,7 @@ export function SettingsClient({
                 {bs.name}
               </span>
               <span className="label-number text-xs mx-auto" style={{ color: "var(--color-pencil)" }}>
-                {bs.widthCells}×{bs.depthCells}×{bs.heightCells}
+                {bs.widthIn}"×{bs.depthIn}"×{bs.heightIn}"
               </span>
               <button
                 type="button"
@@ -151,41 +151,51 @@ export function SettingsClient({
             </li>
           )}
         </ul>
-        <form onSubmit={handleAddBoxSize} className="flex gap-2">
+        <form onSubmit={handleAddBoxSize} className="space-y-2">
           <input
             name="name"
-            placeholder="Name"
+            placeholder="Name (e.g. Wardrobe box)"
             required
             data-testid="new-box-size-name"
-            className="flex-1 rounded-xl px-3 py-2.5 text-sm"
+            className="w-full rounded-xl px-3 py-2.5 text-sm"
             style={inputStyle}
           />
-          {(["W", "D", "H"] as const).map((dim, idx) => (
-            <input
-              key={dim}
-              name={["widthCells", "depthCells", "heightCells"][idx]}
-              type="number"
-              min={1}
-              placeholder={dim}
-              required
-              data-testid={
-                ["new-box-size-width", "new-box-size-depth", "new-box-size-height"][idx]
-              }
-              className="w-14 rounded-xl px-2 py-2.5 text-sm text-center label-number"
-              style={inputStyle}
-            />
-          ))}
-          <button
-            type="submit"
-            data-testid="add-box-size-btn"
-            className="rounded-xl px-4 py-2.5 text-sm font-medium"
-            style={{
-              background: "var(--color-ink)",
-              color: "var(--color-paper)",
-            }}
-          >
-            Add
-          </button>
+          <div className="flex gap-2">
+            {([
+              ["widthIn",  "new-box-size-width",  "W (in)"],
+              ["depthIn",  "new-box-size-depth",  "D (in)"],
+              ["heightIn", "new-box-size-height", "H (in)"],
+            ] as const).map(([name, testId, label]) => (
+              <div key={name} className="flex-1 space-y-1">
+                <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>
+                  {label}
+                </label>
+                <input
+                  name={name}
+                  type="number"
+                  min={1}
+                  placeholder="12"
+                  required
+                  data-testid={testId}
+                  className="w-full rounded-xl px-2 py-2.5 text-sm text-center label-number"
+                  style={inputStyle}
+                />
+              </div>
+            ))}
+            <div className="flex items-end">
+              <button
+                type="submit"
+                data-testid="add-box-size-btn"
+                className="rounded-xl px-4 py-2.5 text-sm font-medium"
+                style={{
+                  background: "var(--color-ink)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
         </form>
       </section>
 

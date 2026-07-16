@@ -58,6 +58,9 @@ model BoxSize {
   id          String  @id @default(cuid())
   userId      String
   name        String
+  widthIn     Int
+  depthIn     Int
+  heightIn    Int
   widthCells  Int
   depthCells  Int
   heightCells Int
