@@ -1,0 +1,1 @@
+ALTER TABLE "Box" ADD COLUMN "qrCode" TEXT;

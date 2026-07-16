@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 export async function createBox(formData: FormData) {
   const userId = await requireUserId();
   const labelNumber = formData.get("labelNumber") as string;
+  const qrCode = (formData.get("qrCode") as string) || null;
   const roomId = formData.get("roomId") as string;
   const boxSizeId = formData.get("boxSizeId") as string;
   const itemsJson = formData.get("items") as string;
@@ -15,6 +16,7 @@ export async function createBox(formData: FormData) {
   const box = await prisma.box.create({
     data: {
       labelNumber,
+      qrCode,
       userId,
       roomId,
       boxSizeId,
@@ -26,6 +28,12 @@ export async function createBox(formData: FormData) {
 
   revalidatePath("/");
   return box.id;
+}
+
+export async function findBoxByQrCode(qrCode: string) {
+  const userId = await requireUserId();
+  const box = await prisma.box.findFirst({ where: { qrCode, userId } });
+  return box?.id ?? null;
 }
 
 export async function addItem(boxId: string, name: string) {
