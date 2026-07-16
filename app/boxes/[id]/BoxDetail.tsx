@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Box, Room, BoxSize, Item, Photo } from "@/app/generated/prisma/client";
-import { addItem, removeItem, deleteBox, setRetrieved, addPhoto, removePhoto } from "@/lib/actions/boxes";
+import { addItem, removeItem, deleteBox, setRetrieved, addPhoto, removePhoto, updateBoxRoom } from "@/lib/actions/boxes";
 
 type BoxWithRelations = Box & {
   room: Room;
@@ -21,10 +21,11 @@ function Spinner() {
   );
 }
 
-export function BoxDetail({ box }: { box: BoxWithRelations }) {
+export function BoxDetail({ box, rooms }: { box: BoxWithRelations; rooms: Room[] }) {
   const router = useRouter();
   const [itemInput, setItemInput] = useState("");
   const [loading, setLoading] = useState<string | null>(null); // which action is in-flight
+  const [editingRoom, setEditingRoom] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const busy = loading !== null;
@@ -57,6 +58,15 @@ export function BoxDetail({ box }: { box: BoxWithRelations }) {
     await run("delete", async () => {
       await deleteBox(box.id);
       router.push("/");
+    });
+  }
+
+  async function handleRoomChange(roomId: string) {
+    setEditingRoom(false);
+    if (roomId === box.roomId) return;
+    await run("room", async () => {
+      await updateBoxRoom(box.id, roomId);
+      router.refresh();
     });
   }
 
@@ -114,9 +124,39 @@ export function BoxDetail({ box }: { box: BoxWithRelations }) {
                 {box.labelNumber}
               </h1>
             </div>
-            <p className="text-sm pl-3" style={{ color: "var(--color-pencil)" }}>
-              {box.room.name} · {box.boxSize.name}
-            </p>
+            <div className="flex items-center gap-1.5 pl-3">
+              {editingRoom ? (
+                <select
+                  autoFocus
+                  defaultValue={box.roomId}
+                  disabled={loading === "room"}
+                  onChange={(e) => handleRoomChange(e.target.value)}
+                  onBlur={() => setEditingRoom(false)}
+                  className="rounded-md px-2 py-0.5 text-sm"
+                  style={{ background: "var(--color-surface)", border: "1px solid var(--color-freight)", color: "var(--color-ink)" }}
+                >
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingRoom(true)}
+                  disabled={busy}
+                  className="flex items-center gap-1 text-sm transition-colors group"
+                  style={{ color: "var(--color-pencil)" }}
+                >
+                  {loading === "room" ? <Spinner /> : null}
+                  <span>{box.room.name}</span>
+                  <svg className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              )}
+              <span style={{ color: "var(--color-kraft)" }}>·</span>
+              <span className="text-sm" style={{ color: "var(--color-pencil)" }}>{box.boxSize.name}</span>
+            </div>
           </div>
 
           {box.retrieved && (

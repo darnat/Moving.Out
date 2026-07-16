@@ -79,6 +79,17 @@ export async function removePhoto(photoId: string) {
   updateTag(userTag(userId));
 }
 
+export async function updateBoxRoom(boxId: string, roomId: string) {
+  const userId = await requireUserId();
+  const [box, room] = await Promise.all([
+    prisma.box.findFirst({ where: { id: boxId, userId } }),
+    prisma.room.findFirst({ where: { id: roomId, userId } }),
+  ]);
+  if (!box || !room) throw new Error("Not found");
+  await prisma.box.update({ where: { id: boxId }, data: { roomId } });
+  updateTag(userTag(userId));
+}
+
 export async function setRetrieved(boxId: string, retrieved: boolean) {
   const userId = await requireUserId();
   await prisma.box.updateMany({
