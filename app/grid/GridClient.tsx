@@ -409,8 +409,8 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
   return (
     <div className="flex gap-6 flex-col lg:flex-row">
       {/* ── Canvas ── */}
-      <div className="flex-1 min-w-0 overflow-auto rounded-2xl"
-           style={{background:"var(--color-surface)",border:"1px solid var(--color-kraft)"}}>
+      <div className="flex-1 min-w-0 overflow-auto rounded-2xl glass"
+           style={{border:"1px solid var(--color-kraft)"}}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${svgW} ${svgH}`}
