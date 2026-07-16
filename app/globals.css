@@ -1,41 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: #060608;
-  --color-surface: #1C1C1E;
-  --color-ink: #FFFFFF;
-  --color-pencil: #8E8E93;
-  --color-freight: #FF6B2B;
-  --color-freight-tint: #1A0906;
-  --color-kraft: #2C2C2E;
+  --color-paper:        #060608;
+  --color-surface:      rgb(28 28 30 / 0.42);
+  --color-ink:          #FFFFFF;
+  --color-pencil:       #8E8E93;
+  --color-freight:      #FF6B2B;
+  --color-freight-tint: rgb(255 107 43 / 0.09);
+  --color-kraft:        rgb(255 255 255 / 0.1);
 
   --font-display: var(--font-space-grotesk), sans-serif;
-  --font-body: var(--font-dm-sans), sans-serif;
-  --font-mono: var(--font-jetbrains-mono), monospace;
-}
-
-/*
-  Glassmorphism token overrides.
-  These come after @theme so the cascade assigns them last,
-  making var(--color-surface) etc. resolve to the rgba values at runtime
-  while @theme still registers the solid hex for Tailwind internals.
-*/
-:root {
-  --color-surface:      rgba(28, 28, 30, 0.62);
-  --color-freight-tint: rgba(255, 107, 43, 0.09);
-  --color-kraft:        rgba(255, 255, 255, 0.1);
+  --font-body:    var(--font-dm-sans), sans-serif;
+  --font-mono:    var(--font-jetbrains-mono), monospace;
 }
 
 * {
   box-sizing: border-box;
 }
 
-/*
-  Fixed ambient gradient — the canvas glass cards blur against.
-  Two warm orange light sources on near-black, like warehouse LED strips.
-  background-attachment: fixed keeps it stationary while content scrolls,
-  so you see different depths of the gradient through each card.
-*/
 html {
   min-height: 100%;
   background: #060608;
@@ -43,32 +25,26 @@ html {
 
 body {
   min-height: 100%;
-  /*
-    Layer order (first = topmost):
-    1. Isometric diamond grid — ±26.57° matches the storage map's projection angle
-       so the background and the map share the same geometry. 0.5px lines at 3%
-       white, 30px perpendicular spacing. Barely visible; felt more than seen.
-    2-4. Warm orange ambient radials — the canvas the glass blurs against.
-    5.   Base colour.
-  */
   background-image:
+    /* Isometric grid — ±26.57° = arctan(0.5), exact projection angle of the storage map */
     repeating-linear-gradient(
        26.57deg,
-       rgba(255, 255, 255, 0.016) 0,
-       rgba(255, 255, 255, 0.016) 0.5px,
+       rgb(255 255 255 / 0.021) 0,
+       rgb(255 255 255 / 0.021) 0.5px,
        transparent 0.5px,
        transparent 30px
     ),
     repeating-linear-gradient(
       -26.57deg,
-       rgba(255, 255, 255, 0.016) 0,
-       rgba(255, 255, 255, 0.016) 0.5px,
+       rgb(255 255 255 / 0.021) 0,
+       rgb(255 255 255 / 0.021) 0.5px,
        transparent 0.5px,
        transparent 30px
     ),
-    radial-gradient(ellipse 75% 55% at  8% 78%, rgba(255, 107, 43, 0.16) 0%, transparent 58%),
-    radial-gradient(ellipse 55% 40% at 92% 10%, rgba(255, 107, 43, 0.09) 0%, transparent 52%),
-    radial-gradient(ellipse 40% 35% at 55% 45%, rgba(255, 130, 60, 0.04) 0%, transparent 50%);
+    /* Warm ambient canvas — what the glass blurs against */
+    radial-gradient(ellipse 75% 55% at  8% 78%, rgb(255 107  43 / 0.28) 0%, transparent 58%),
+    radial-gradient(ellipse 55% 40% at 92% 10%, rgb(255  90  30 / 0.18) 0%, transparent 52%),
+    radial-gradient(ellipse 45% 35% at 52% 42%, rgb(255 140  60 / 0.08) 0%, transparent 50%);
   background-color: #060608;
   background-attachment: fixed;
   color: var(--color-ink);
@@ -84,62 +60,52 @@ input, select, textarea, button {
   font-family: var(--font-body);
 }
 
-/* Box label numbers — amber terminal glow */
 .label-number {
   font-family: var(--font-mono);
   letter-spacing: -0.04em;
-  text-shadow: 0 0 16px rgba(255, 107, 43, 0.45);
+  text-shadow: 0 0 16px rgb(255 107 43 / 0.45);
 }
 
-/* Soft amber focus ring */
 *:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(255, 107, 43, 0.32);
+  box-shadow: 0 0 0 3px rgb(255 107 43 / 0.32);
 }
 
-button {
-  cursor: pointer;
-}
+button          { cursor: not-allowed; }
+button:not(:disabled) { cursor: pointer; }
+button:disabled { opacity: 0.5; }
 
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-/* ── Liquid glass ── */
+/* ── Liquid glass ──────────────────────────────────────────────────────────── */
 
 /*
-  .glass — the core material.
-  backdrop-filter blurs the ambient gradient visible through the card.
-  inset highlight = refraction line at the top edge (the "liquid" trait).
-  Border comes from var(--color-kraft) = rgba(255,255,255,0.1) — a ghost edge.
+  backdrop-filter blurs the warm gradient visible through the card.
+  inset 1px top highlight = the refraction line that reads as physical material.
+  Surface opacity 42% lets 58% of the gradient bleed through before blurring.
 */
 .glass {
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(48px) saturate(180%);
+  -webkit-backdrop-filter: blur(48px) saturate(180%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.13),
-    0 4px 32px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 8px 40px rgb(0 0 0 / 0.4);
 }
 
-/* Orange-tinted glass for accent surfaces */
 .glass-orange {
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(48px) saturate(180%);
+  -webkit-backdrop-filter: blur(48px) saturate(180%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 107, 43, 0.38),
-    0 4px 32px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgb(255 107 43 / 0.4),
+    0 8px 40px rgb(0 0 0 / 0.4);
 }
 
-/* Lift + deepen on hover — one micro-interaction used sparingly */
 .card-hover {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .card-hover:hover {
   transform: translateY(-1px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 16px 48px rgba(0, 0, 0, 0.45);
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 16px 48px rgb(0 0 0 / 0.5);
 }
 
 @keyframes spin {
