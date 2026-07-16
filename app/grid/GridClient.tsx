@@ -462,9 +462,9 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
       {/* ── Sidebar ── */}
       <div className="w-full lg:w-60 space-y-4 shrink-0">
         {mode==="place" && selectedBox && (
-          <div className="rounded-xl px-3 py-2 text-xs leading-relaxed"
+          <div className="rounded-2xl px-3 py-2 text-xs leading-relaxed glass-orange"
                style={{background:"var(--color-freight-tint)",
-                       border:"1px solid color-mix(in srgb, var(--color-freight) 30%, transparent)",
+                       border:"1px solid rgba(255,107,43,0.28)",
                        color:"var(--color-freight)"}}>
             {isMoving ? "Moving" : "Placing"}{" "}
             <span className="font-bold label-number">{selectedBox.labelNumber}</span>
@@ -473,7 +473,7 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
         )}
 
         {suggestion && mode==="place" && (
-          <div className="rounded-xl px-3 py-2 text-xs"
+          <div className="rounded-2xl px-3 py-2 text-xs glass"
                style={{background:"var(--color-surface)",border:"1px solid var(--color-kraft)",color:"var(--color-ink)"}}>
             Stacking on <span className="label-number font-semibold">{suggestion.onBox}</span> — level {suggestion.level}
           </div>
@@ -492,7 +492,7 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
                 <button
                   data-testid={`select-box-${b.labelNumber}`}
                   onClick={()=>{setSelectedBox(b);setMode("place");setInfoBox(null);setHoverCell(null);setSuggestion(null);setError("");}}
-                  className="w-full rounded-xl px-3 py-2.5 text-left text-sm"
+                  className="w-full rounded-2xl px-3 py-2.5 text-left text-sm glass"
                   style={{background:selectedBox?.id===b.id?"var(--color-freight-tint)":"var(--color-surface)",
                           border:selectedBox?.id===b.id?"1px solid color-mix(in srgb, var(--color-freight) 40%, transparent)":"1px solid var(--color-kraft)"}}>
                   <span className="label-number font-semibold block text-sm"
@@ -513,15 +513,15 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
 
         {mode==="place" && (
           <button onClick={cancelPlace} disabled={isPending}
-                  className="w-full rounded-xl px-4 py-2.5 text-sm"
-                  style={{border:"1px solid var(--color-kraft)",color:"var(--color-pencil)"}}>
+                  className="w-full rounded-2xl px-4 py-2.5 text-sm glass"
+                  style={{background:"var(--color-surface)",border:"1px solid var(--color-kraft)",color:"var(--color-pencil)"}}>
             {isPending ? <><Spinner/> Saving…</> : "Cancel (Esc)"}
           </button>
         )}
 
         {/* Info panel (sidebar fallback when overlay not visible) */}
         {infoBox && mode==="view" && (
-          <div data-testid="cell-info-panel" className="rounded-xl p-4 space-y-3"
+          <div data-testid="cell-info-panel" className="rounded-2xl p-4 space-y-3 glass"
                style={{background:"var(--color-surface)",border:"1px solid var(--color-kraft)"}}>
             <div>
               <p className="label-number font-bold text-lg" style={{color:"var(--color-ink)"}}>{infoBox.labelNumber}</p>

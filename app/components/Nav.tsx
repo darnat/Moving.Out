@@ -4,10 +4,10 @@ export function Nav({ active }: { active?: "search" | "grid" | "settings" }) {
   return (
     <header
       style={{
-        borderBottom: "1px solid var(--color-kraft)",
-        background: "color-mix(in srgb, var(--color-paper) 80%, transparent)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
+        borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+        background: "rgba(6, 6, 8, 0.72)",
+        backdropFilter: "blur(28px) saturate(180%)",
+        WebkitBackdropFilter: "blur(28px) saturate(180%)",
       }}
       className="sticky top-0 z-10"
     >
