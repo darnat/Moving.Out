@@ -50,6 +50,17 @@ export async function placeBox(
 
   if (conflict) return { error: `Occupied by ${conflict.labelNumber}` };
 
+  // Require support beneath any box not on the floor
+  if (stackLevel > 1) {
+    const hasSupport = placedBoxes.some((b) => {
+      const ew = bw(b.boxSize); const ed = bd(b.boxSize);
+      const colOk = gridCol < b.gridCol! + ew - EPS && gridCol + nw > b.gridCol! + EPS;
+      const rowOk = gridRow < b.gridRow! + ed - EPS && gridRow + nd > b.gridRow! + EPS;
+      return colOk && rowOk && b.stackLevel! + b.boxSize.heightCells === stackLevel;
+    });
+    if (!hasSupport) return { error: "Nothing to stack on at that level" };
+  }
+
   await prisma.box.updateMany({
     where: { id: boxId, userId },
     data: { gridCol, gridRow, stackLevel },
