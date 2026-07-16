@@ -12,7 +12,6 @@ type BoxWithRelations = Box & { boxSize: BoxSize; room: Room };
 const TW = 60;       // tile width (one cell → screen px)
 const TH = TW / 2;  // tile height (2:1 isometric)
 const LH = 50;       // screen px per stack level
-const MAX_VIS_LEVELS = 8;
 const PAD = 28;
 
 /* ─── Cardboard colour palette ─── */
@@ -180,10 +179,12 @@ export function GridClient({
   boxes,
   widthCells,
   depthCells,
+  heightCells,
 }: {
   boxes: BoxWithRelations[];
   widthCells: number;
   depthCells: number;
+  heightCells: number;
 }) {
   const router = useRouter();
   const [selectedBox, setSelectedBox]   = useState<BoxWithRelations | null>(null);
@@ -206,9 +207,9 @@ export function GridClient({
 
   /* ── Scene geometry ── */
   const OX = depthCells * TW / 2 + PAD;
-  const OY = MAX_VIS_LEVELS * LH + PAD;
+  const OY = heightCells * LH + PAD;
   const svgW = (widthCells + depthCells) * TW / 2 + PAD * 2;
-  const svgH = (widthCells + depthCells) * TH / 2 + MAX_VIS_LEVELS * LH + PAD * 2;
+  const svgH = (widthCells + depthCells) * TH / 2 + heightCells * LH + PAD * 2;
 
   /* ── Ghost target ── */
   const ghostTarget = mode === "place" && selectedBox
@@ -259,7 +260,7 @@ export function GridClient({
 
   /* ── Back walls ── */
   function renderWalls() {
-    const wallH = MAX_VIS_LEVELS;
+    const wallH = heightCells;
 
     // Right wall — vertical plane at row=0, spans col 0..widthCells (appears on the right)
     const rTL: [number, number] = [ix(0,          0, OX), iy(0,          0, wallH, OY)];

@@ -16,7 +16,7 @@ export default async function GridPage() {
     prisma.storageUnit.findUnique({ where: { userId } }),
   ]);
 
-  const unit = storageUnit ?? { widthCells: 10, depthCells: 20 };
+  const unit = storageUnit ?? { widthCells: 10, depthCells: 20, heightCells: 8 };
 
   return (
     <div className="min-h-screen" style={{ background: "var(--color-paper)" }}>
@@ -33,7 +33,7 @@ export default async function GridPage() {
             {unit.widthCells} × {unit.depthCells} cells
           </p>
         </div>
-        <GridClient boxes={boxes} widthCells={unit.widthCells} depthCells={unit.depthCells} />
+        <GridClient boxes={boxes} widthCells={unit.widthCells} depthCells={unit.depthCells} heightCells={unit.heightCells} />
       </main>
     </div>
   );

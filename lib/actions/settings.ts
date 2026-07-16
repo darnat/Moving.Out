@@ -46,17 +46,15 @@ export async function deleteRoom(id: string) {
 
 export async function updateStorageUnit(formData: FormData) {
   const userId = await requireUserId();
+  const data = {
+    widthCells:  Number(formData.get("widthCells")),
+    depthCells:  Number(formData.get("depthCells")),
+    heightCells: Number(formData.get("heightCells")),
+  };
   await prisma.storageUnit.upsert({
     where: { userId },
-    update: {
-      widthCells: Number(formData.get("widthCells")),
-      depthCells: Number(formData.get("depthCells")),
-    },
-    create: {
-      userId,
-      widthCells: Number(formData.get("widthCells")),
-      depthCells: Number(formData.get("depthCells")),
-    },
+    update: data,
+    create: { userId, ...data },
   });
   revalidatePath("/settings");
   revalidatePath("/grid");

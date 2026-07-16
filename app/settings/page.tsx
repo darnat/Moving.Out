@@ -26,7 +26,7 @@ export default async function SettingsPage() {
         <SettingsClient
           boxSizes={boxSizes}
           rooms={rooms}
-          storageUnit={storageUnit ?? { widthCells: 10, depthCells: 20, id: "", userId }}
+          storageUnit={storageUnit ?? { widthCells: 10, depthCells: 20, heightCells: 8, id: "", userId }}
         />
       </main>
     </div>

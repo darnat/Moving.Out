@@ -47,11 +47,12 @@ model User {
 }
 
 model StorageUnit {
-  id         String @id @default(cuid())
-  userId     String @unique
-  widthCells Int    @default(10)
-  depthCells Int    @default(20)
-  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String @id @default(cuid())
+  userId      String @unique
+  widthCells  Int    @default(10)
+  depthCells  Int    @default(20)
+  heightCells Int    @default(8)
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model BoxSize {

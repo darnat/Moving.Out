@@ -24,17 +24,19 @@ export function SettingsClient({
 }: {
   boxSizes: BoxSize[];
   rooms: Room[];
-  storageUnit: Pick<StorageUnit, "widthCells" | "depthCells" | "id" | "userId">;
+  storageUnit: Pick<StorageUnit, "widthCells" | "depthCells" | "heightCells" | "id" | "userId">;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  const [widthCells, setWidthCells] = useState(storageUnit.widthCells);
-  const [depthCells, setDepthCells] = useState(storageUnit.depthCells);
+  const [widthCells, setWidthCells]   = useState(storageUnit.widthCells);
+  const [depthCells, setDepthCells]   = useState(storageUnit.depthCells);
+  const [heightCells, setHeightCells] = useState(storageUnit.heightCells);
   useEffect(() => {
     setWidthCells(storageUnit.widthCells);
     setDepthCells(storageUnit.depthCells);
-  }, [storageUnit.widthCells, storageUnit.depthCells]);
+    setHeightCells(storageUnit.heightCells);
+  }, [storageUnit.widthCells, storageUnit.depthCells, storageUnit.heightCells]);
 
   async function handleAddBoxSize(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -93,6 +95,21 @@ export function SettingsClient({
               value={depthCells}
               onChange={(e) => setDepthCells(Number(e.target.value))}
               data-testid="storage-depth"
+              className="w-24 rounded-xl px-3 py-2.5 text-sm"
+              style={inputStyle}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>
+              Ceiling (levels)
+            </label>
+            <input
+              name="heightCells"
+              type="number"
+              min={1}
+              value={heightCells}
+              onChange={(e) => setHeightCells(Number(e.target.value))}
+              data-testid="storage-height"
               className="w-24 rounded-xl px-3 py-2.5 text-sm"
               style={inputStyle}
             />

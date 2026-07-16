@@ -1,0 +1,1 @@
+ALTER TABLE "StorageUnit" ADD COLUMN "heightCells" INTEGER NOT NULL DEFAULT 8;
