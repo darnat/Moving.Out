@@ -1,19 +1,15 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { Nav } from "@/app/components/Nav";
 import { GridClient } from "./GridClient";
+import { getCachedGridBoxes, getCachedStorageUnit } from "@/lib/data";
 
 export default async function GridPage() {
   const session = await auth();
   const userId = session!.user!.id!;
 
   const [boxes, storageUnit] = await Promise.all([
-    prisma.box.findMany({
-      where: { userId, retrieved: false },
-      include: { boxSize: true, room: true },
-      orderBy: { labelNumber: "asc" },
-    }),
-    prisma.storageUnit.findUnique({ where: { userId } }),
+    getCachedGridBoxes(userId),
+    getCachedStorageUnit(userId),
   ]);
 
   const unit = storageUnit ?? { widthCells: 10, depthCells: 20, heightCells: 8 };

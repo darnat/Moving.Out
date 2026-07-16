@@ -1,16 +1,16 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { Nav } from "@/app/components/Nav";
 import { SettingsClient } from "./SettingsClient";
+import { getCachedBoxSizes, getCachedRooms, getCachedStorageUnit } from "@/lib/data";
 
 export default async function SettingsPage() {
   const session = await auth();
   const userId = session!.user!.id!;
 
   const [boxSizes, rooms, storageUnit] = await Promise.all([
-    prisma.boxSize.findMany({ where: { userId }, orderBy: { name: "asc" } }),
-    prisma.room.findMany({ where: { userId }, orderBy: { name: "asc" } }),
-    prisma.storageUnit.findUnique({ where: { userId } }),
+    getCachedBoxSizes(userId),
+    getCachedRooms(userId),
+    getCachedStorageUnit(userId),
   ]);
 
   return (

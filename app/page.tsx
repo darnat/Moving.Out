@@ -1,19 +1,15 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { Nav } from "./components/Nav";
 import { SearchSection } from "./components/SearchSection";
+import { getCachedBoxes, getCachedRooms } from "@/lib/data";
 
 export default async function DashboardPage() {
   const session = await auth();
   const userId = session!.user!.id!;
 
   const [boxes, rooms] = await Promise.all([
-    prisma.box.findMany({
-      where: { userId },
-      include: { room: true, boxSize: true, items: true },
-      orderBy: { id: "desc" },
-    }),
-    prisma.room.findMany({ where: { userId }, orderBy: { name: "asc" } }),
+    getCachedBoxes(userId),
+    getCachedRooms(userId),
   ]);
 
   const unplacedCount = boxes.filter((b) => b.gridCol === null && !b.retrieved).length;

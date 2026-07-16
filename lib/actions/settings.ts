@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { updateTag } from "next/cache";
+import { userTag } from "@/lib/data";
 import { requireUserId } from "@/lib/actions/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -21,13 +22,13 @@ export async function addBoxSize(formData: FormData) {
       heightCells: Math.max(1, Math.ceil(heightIn / 12)),
     },
   });
-  revalidatePath("/settings");
+  updateTag(userTag(userId));
 }
 
 export async function deleteBoxSize(id: string) {
   const userId = await requireUserId();
   await prisma.boxSize.deleteMany({ where: { id, userId } });
-  revalidatePath("/settings");
+  updateTag(userTag(userId));
 }
 
 export async function addRoom(formData: FormData) {
@@ -35,13 +36,13 @@ export async function addRoom(formData: FormData) {
   await prisma.room.create({
     data: { userId, name: formData.get("name") as string },
   });
-  revalidatePath("/settings");
+  updateTag(userTag(userId));
 }
 
 export async function deleteRoom(id: string) {
   const userId = await requireUserId();
   await prisma.room.deleteMany({ where: { id, userId } });
-  revalidatePath("/settings");
+  updateTag(userTag(userId));
 }
 
 export async function updateStorageUnit(formData: FormData) {
@@ -56,6 +57,5 @@ export async function updateStorageUnit(formData: FormData) {
     update: data,
     create: { userId, ...data },
   });
-  revalidatePath("/settings");
-  revalidatePath("/grid");
+  updateTag(userTag(userId));
 }

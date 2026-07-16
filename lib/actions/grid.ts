@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { updateTag } from "next/cache";
+import { userTag } from "@/lib/data";
 import { requireUserId } from "@/lib/actions/auth";
 import { prisma } from "@/lib/prisma";
 import { BoxSize } from "@/app/generated/prisma/client";
@@ -67,8 +68,7 @@ export async function placeBox(
     data: { gridCol, gridRow, stackLevel },
   });
 
-  revalidatePath("/grid");
-  revalidatePath("/");
+  updateTag(userTag(userId));
   return {};
 }
 
@@ -106,7 +106,6 @@ export async function unplaceBox(boxId: string): Promise<{ error?: string }> {
     where: { id: boxId, userId },
     data: { gridCol: null, gridRow: null, stackLevel: null },
   });
-  revalidatePath("/grid");
-  revalidatePath("/");
+  updateTag(userTag(userId));
   return {};
 }

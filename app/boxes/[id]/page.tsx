@@ -1,18 +1,15 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { Nav } from "@/app/components/Nav";
 import { BoxDetail } from "./BoxDetail";
+import { getCachedBox } from "@/lib/data";
 
 export default async function BoxPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   const userId = session!.user!.id!;
 
-  const box = await prisma.box.findFirst({
-    where: { id, userId },
-    include: { room: true, boxSize: true, items: true, photos: true },
-  });
+  const box = await getCachedBox(id, userId);
 
   if (!box) notFound();
 

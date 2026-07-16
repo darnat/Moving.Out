@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { updateTag } from "next/cache";
+import { userTag } from "@/lib/data";
 import { requireUserId } from "@/lib/actions/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -26,7 +27,7 @@ export async function createBox(formData: FormData) {
     },
   });
 
-  revalidatePath("/");
+  updateTag(userTag(userId));
   return box.id;
 }
 
@@ -41,7 +42,7 @@ export async function addItem(boxId: string, name: string) {
   const box = await prisma.box.findFirst({ where: { id: boxId, userId } });
   if (!box) throw new Error("Box not found");
   await prisma.item.create({ data: { boxId, name } });
-  revalidatePath(`/boxes/${boxId}`);
+  updateTag(userTag(userId));
 }
 
 export async function removeItem(itemId: string) {
@@ -51,13 +52,13 @@ export async function removeItem(itemId: string) {
   });
   if (!item) throw new Error("Item not found");
   await prisma.item.delete({ where: { id: itemId } });
-  revalidatePath(`/boxes/${item.boxId}`);
+  updateTag(userTag(userId));
 }
 
 export async function deleteBox(boxId: string) {
   const userId = await requireUserId();
   await prisma.box.deleteMany({ where: { id: boxId, userId } });
-  revalidatePath("/");
+  updateTag(userTag(userId));
 }
 
 export async function addPhoto(boxId: string, url: string) {
@@ -65,7 +66,7 @@ export async function addPhoto(boxId: string, url: string) {
   const box = await prisma.box.findFirst({ where: { id: boxId, userId } });
   if (!box) throw new Error("Box not found");
   await prisma.photo.create({ data: { boxId, url } });
-  revalidatePath(`/boxes/${boxId}`);
+  updateTag(userTag(userId));
 }
 
 export async function removePhoto(photoId: string) {
@@ -75,7 +76,7 @@ export async function removePhoto(photoId: string) {
   });
   if (!photo) throw new Error("Photo not found");
   await prisma.photo.delete({ where: { id: photoId } });
-  revalidatePath(`/boxes/${photo.boxId}`);
+  updateTag(userTag(userId));
 }
 
 export async function setRetrieved(boxId: string, retrieved: boolean) {
@@ -84,8 +85,5 @@ export async function setRetrieved(boxId: string, retrieved: boolean) {
     where: { id: boxId, userId },
     data: { retrieved },
   });
-  revalidatePath(`/boxes/${boxId}`);
-  revalidatePath("/grid");
-  revalidatePath("/");
-  revalidatePath("/boxes");
+  updateTag(userTag(userId));
 }

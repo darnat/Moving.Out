@@ -15,6 +15,7 @@ function createPrismaClient() {
   const pool = new pg.Pool({
     connectionString: url.toString(),
     ssl: { rejectUnauthorized: false },
+    max: 2, // Serverless: each Lambda instance needs few connections; prevents exhausting Supabase's pool
   });
 
   const adapter = new PrismaPg(pool);
