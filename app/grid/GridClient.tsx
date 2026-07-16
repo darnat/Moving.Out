@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Box, BoxSize, Room } from "@/app/generated/prisma/client";
 import { placeBox, unplaceBox } from "@/lib/actions/grid";
@@ -40,6 +40,15 @@ function pts(coords: [number, number][]) {
   return coords.map(([x, y]) => `${x},${y}`).join(" ");
 }
 
+function GridSpinner() {
+  return (
+    <svg className="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" opacity="0.9" />
+      <path d="M12 2a10 10 0 0 0-10 10" strokeLinecap="round" opacity="0.3" />
+    </svg>
+  );
+}
+
 /* ─── Box faces ─── */
 function BoxShape({
   box,
@@ -57,7 +66,10 @@ function BoxShape({
 }) {
   const { gridCol: c, gridRow: r, stackLevel: sl, boxSize, labelNumber } = box;
   const col = c!; const row = r!;
-  const { widthCells: w, depthCells: d, heightCells: h } = boxSize;
+  // Use actual inch dimensions for visual accuracy; fall back to cells×12 if inches not yet migrated
+  const w = ((boxSize.widthIn  as number | null) ?? boxSize.widthCells  * 12) / 12;
+  const d = ((boxSize.depthIn  as number | null) ?? boxSize.depthCells  * 12) / 12;
+  const h = ((boxSize.heightIn as number | null) ?? boxSize.heightCells * 12) / 12;
   const z0 = (sl ?? 1) - 1;
   const z1 = z0 + h;
 
@@ -87,8 +99,8 @@ function BoxShape({
   const ly = (TL[1]+TR[1]+BR[1]+BL[1]) / 4;
   const fontSize = Math.max(7, Math.min(11, TW * 0.18));
 
-  // Corrugation lines on side faces
-  const corrLines = h * 2 + 1;
+  // Corrugation lines — use physical height in cells for line density
+  const corrLines = boxSize.heightCells * 2 + 1;
   const corrFront: [number, number][][] = [];
   const corrRight: [number, number][][] = [];
   for (let i = 1; i < corrLines; i++) {
@@ -187,6 +199,7 @@ export function GridClient({
   heightCells: number;
 }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [selectedBox, setSelectedBox]   = useState<BoxWithRelations | null>(null);
   const [stackLevel, setStackLevel]     = useState("1");
   const [placeTarget, setPlaceTarget]   = useState<{ col: number; row: number } | null>(null);
@@ -225,29 +238,35 @@ export function GridClient({
   }
 
   async function handleConfirmPlacement() {
-    if (!selectedBox || !placeTarget) return;
+    if (!selectedBox || !placeTarget || isPending) return;
     const level = Number(stackLevel);
     if (!level || level < 1) { setError("Stack level must be ≥ 1"); return; }
-    const result = await placeBox(selectedBox.id, placeTarget.col, placeTarget.row, level);
-    if (result.error) { setError(result.error); return; }
-    setSelectedBox(null);
-    setPlaceTarget(null);
-    setMode("view");
-    router.refresh();
+    startTransition(async () => {
+      const result = await placeBox(selectedBox.id, placeTarget.col, placeTarget.row, level);
+      if (result.error) { setError(result.error); return; }
+      setSelectedBox(null);
+      setPlaceTarget(null);
+      setMode("view");
+      router.refresh();
+    });
   }
 
   async function handleUnplace() {
-    if (!infoBox) return;
-    await unplaceBox(infoBox.id);
-    setInfoBox(null);
-    router.refresh();
+    if (!infoBox || isPending) return;
+    startTransition(async () => {
+      await unplaceBox(infoBox.id);
+      setInfoBox(null);
+      router.refresh();
+    });
   }
 
   async function handleRetrieve() {
-    if (!infoBox) return;
-    await setRetrieved(infoBox.id, true);
-    setInfoBox(null);
-    router.refresh();
+    if (!infoBox || isPending) return;
+    startTransition(async () => {
+      await setRetrieved(infoBox.id, true);
+      setInfoBox(null);
+      router.refresh();
+    });
   }
 
   function cancelPlace() {
@@ -341,10 +360,10 @@ export function GridClient({
         onMouseLeave={() => setHoverCell(null)}
       >
         <svg
+          viewBox={`0 0 ${svgW} ${svgH}`}
           width={svgW}
           height={svgH}
-          viewBox={`0 0 ${svgW} ${svgH}`}
-          style={{ display: "block" }}
+          style={{ display: "block", width: "100%", height: "auto", minWidth: 280 }}
         >
           {/* Back walls — rendered first (furthest from viewer) */}
           {renderWalls()}
@@ -495,13 +514,15 @@ export function GridClient({
               <button
                 onClick={handleConfirmPlacement}
                 data-testid="confirm-placement-btn"
-                className="flex-1 rounded-lg py-2 text-sm font-medium text-white"
+                disabled={isPending}
+                className="flex-1 rounded-lg py-2 text-sm font-medium text-white flex items-center justify-center gap-2"
                 style={{ background: "var(--color-freight)" }}
               >
-                Place
+                {isPending ? <><GridSpinner /> Placing…</> : "Place"}
               </button>
               <button
                 onClick={cancelPlace}
+                disabled={isPending}
                 className="rounded-lg px-3 py-2 text-sm"
                 style={{ border: "1px solid var(--color-kraft)", color: "var(--color-pencil)" }}
               >
@@ -536,21 +557,21 @@ export function GridClient({
               <button
                 onClick={handleRetrieve}
                 data-testid="retrieve-btn"
-                className="flex-1 rounded-lg py-2 text-xs font-medium"
-                style={{
-                  background: "var(--color-paper)",
-                  border: "1px solid var(--color-kraft)",
-                  color: "var(--color-ink)",
-                }}
+                disabled={isPending}
+                className="flex-1 rounded-lg py-2 text-xs font-medium flex items-center justify-center gap-1.5"
+                style={{ background: "var(--color-paper)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
               >
+                {isPending ? <GridSpinner /> : null}
                 Retrieved
               </button>
               <button
                 onClick={handleUnplace}
                 data-testid="unplace-btn"
-                className="rounded-lg px-3 py-2 text-xs"
+                disabled={isPending}
+                className="rounded-lg px-3 py-2 text-xs flex items-center gap-1.5"
                 style={{ border: "1px solid var(--color-kraft)", color: "var(--color-pencil)" }}
               >
+                {isPending ? <GridSpinner /> : null}
                 Unplace
               </button>
             </div>
