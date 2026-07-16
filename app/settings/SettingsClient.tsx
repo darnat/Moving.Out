@@ -68,56 +68,32 @@ function handleUpdateStorage(e: React.FormEvent<HTMLFormElement>) {
       {/* Storage unit */}
       <section>
         <SectionHeader>Storage unit</SectionHeader>
-        <form onSubmit={handleUpdateStorage} className="flex gap-3 items-end">
-          <div className="space-y-1.5">
-            <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>
-              Width (cells)
-            </label>
-            <input
-              name="widthCells"
-              type="number"
-              min={1}
-              value={widthCells}
-              onChange={(e) => setWidthCells(Number(e.target.value))}
-              data-testid="storage-width"
-              className="w-24 rounded-xl px-3 py-2.5 text-sm"
-              style={inputStyle}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>
-              Depth (cells)
-            </label>
-            <input
-              name="depthCells"
-              type="number"
-              min={1}
-              value={depthCells}
-              onChange={(e) => setDepthCells(Number(e.target.value))}
-              data-testid="storage-depth"
-              className="w-24 rounded-xl px-3 py-2.5 text-sm"
-              style={inputStyle}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>
-              Ceiling (levels)
-            </label>
-            <input
-              name="heightCells"
-              type="number"
-              min={1}
-              value={heightCells}
-              onChange={(e) => setHeightCells(Number(e.target.value))}
-              data-testid="storage-height"
-              className="w-24 rounded-xl px-3 py-2.5 text-sm"
-              style={inputStyle}
-            />
+        <form onSubmit={handleUpdateStorage} className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              ["widthCells",  "Width (cells)",   widthCells,   setWidthCells,   "storage-width"],
+              ["depthCells",  "Depth (cells)",   depthCells,   setDepthCells,   "storage-depth"],
+              ["heightCells", "Ceiling (levels)", heightCells, setHeightCells,  "storage-height"],
+            ] as const).map(([name, label, val, setter, testId]) => (
+              <div key={name} className="space-y-1.5">
+                <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>{label}</label>
+                <input
+                  name={name}
+                  type="number"
+                  min={1}
+                  value={val}
+                  onChange={(e) => setter(Number(e.target.value))}
+                  data-testid={testId}
+                  className="w-full rounded-xl px-3 py-2.5 text-sm"
+                  style={inputStyle}
+                />
+              </div>
+            ))}
           </div>
           <button
             type="submit"
             data-testid="save-storage-btn"
-            className="rounded-xl px-4 py-2.5 text-sm font-medium text-white"
+            className="w-full rounded-xl px-4 py-2.5 text-sm font-medium text-white"
             style={{ background: "var(--color-freight)" }}
           >
             Save
@@ -177,13 +153,13 @@ function handleUpdateStorage(e: React.FormEvent<HTMLFormElement>) {
             className="w-full rounded-xl px-3 py-2.5 text-sm"
             style={inputStyle}
           />
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {([
               ["widthIn",  "new-box-size-width",  "W (in)"],
               ["depthIn",  "new-box-size-depth",  "D (in)"],
               ["heightIn", "new-box-size-height", "H (in)"],
             ] as const).map(([name, testId, label]) => (
-              <div key={name} className="flex-1 space-y-1">
+              <div key={name} className="space-y-1">
                 <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>
                   {label}
                 </label>
@@ -199,20 +175,15 @@ function handleUpdateStorage(e: React.FormEvent<HTMLFormElement>) {
                 />
               </div>
             ))}
-            <div className="flex items-end">
-              <button
-                type="submit"
-                data-testid="add-box-size-btn"
-                className="rounded-xl px-4 py-2.5 text-sm font-medium"
-                style={{
-                  background: "var(--color-ink)",
-                  color: "var(--color-paper)",
-                }}
-              >
-                Add
-              </button>
-            </div>
           </div>
+          <button
+            type="submit"
+            data-testid="add-box-size-btn"
+            className="w-full rounded-xl px-4 py-2.5 text-sm font-medium"
+            style={{ background: "var(--color-ink)", color: "var(--color-paper)" }}
+          >
+            Add
+          </button>
         </form>
       </section>
 

@@ -25,16 +25,20 @@ export function Nav({ active }: { active?: "search" | "grid" | "settings" | "fur
         </Link>
 
         <nav className="flex items-center gap-1">
-          <NavLink href="/" label="Boxes" active={active === "search"} />
-          <NavLink href="/furniture" label="Furniture" active={active === "furniture"} />
-          <NavLink href="/grid" label="Map" active={active === "grid"} />
-          <NavLink href="/settings" label="Settings" active={active === "settings"} />
+          {/* Desktop links — hidden on mobile (bottom nav handles navigation there) */}
+          <span className="hidden lg:contents">
+            <NavLink href="/" label="Boxes" active={active === "search"} />
+            <NavLink href="/furniture" label="Furniture" active={active === "furniture"} />
+            <NavLink href="/grid" label="Map" active={active === "grid"} />
+            <NavLink href="/settings" label="Settings" active={active === "settings"} />
+          </span>
           <Link
             href="/boxes/new"
             className="ml-2 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
             style={{ background: "var(--color-freight)" }}
           >
-            <span className="text-base leading-none">+</span> New box
+            <span className="text-base leading-none">+</span>
+            <span className="hidden sm:inline">New box</span>
           </Link>
         </nav>
       </div>

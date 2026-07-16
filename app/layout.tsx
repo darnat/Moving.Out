@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { FloatingActions } from "./components/FloatingActions";
+import { BottomNav } from "./components/BottomNav";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -33,10 +34,11 @@ export default function RootLayout({
       lang="en"
       className={`${spaceGrotesk.variable} ${dmSans.variable} ${jetbrainsMono.variable} h-full`}
     >
-      <body className="min-h-full flex flex-col isolate">
+      <body className="min-h-full flex flex-col isolate pb-16 lg:pb-0">
         <div aria-hidden="true" className="bg-canvas fixed inset-0 -z-10 pointer-events-none" />
         {children}
         <FloatingActions />
+        <BottomNav />
       </body>
     </html>
   );
