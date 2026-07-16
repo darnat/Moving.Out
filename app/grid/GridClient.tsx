@@ -135,7 +135,11 @@ function BoxShape({ box, ox, oy, isSelected, onSelect, inPlaceMode, opacity = 1 
   const tapeB: [number,number] = [(BL[0]+BR[0])/2, (BL[1]+BR[1])/2];
   const lx = (TL[0]+TR[0]+BR[0]+BL[0])/4;
   const ly = (TL[1]+TR[1]+BR[1]+BL[1])/4;
-  const fs = Math.max(7, Math.min(11, TW * 0.18));
+  // Ellipse must stay inside the parallelogram top face.
+  // For the isometric rhombus: (rx/a)²+(ry/b)²≤1 where a=(w+d)·TW/4, b=(w+d)·TH/4.
+  const eRx = Math.min(w * TW * 0.28, (w + d) * TW * 0.15);
+  const eRy = Math.min(d * TH * 0.48, (w + d) * TH * 0.15);
+  const fs  = Math.max(7, Math.min(11, eRx * 0.65));
   const cL = boxSize.heightCells * 2 + 1;
   const cF: [[number,number],[number,number]][] = [];
   const cR: [[number,number],[number,number]][] = [];
@@ -155,7 +159,7 @@ function BoxShape({ box, ox, oy, isSelected, onSelect, inPlaceMode, opacity = 1 
       {cR.map(([a,b],i)=><line key={i} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="rgba(0,0,0,0.06)" strokeWidth={0.5}/>)}
       <polygon points={pts([TL,TR,BR,BL])} fill={topC} stroke={strokeC} strokeWidth={sw2}/>
       <line x1={tapeT[0]} y1={tapeT[1]} x2={tapeB[0]} y2={tapeB[1]} stroke={CARD.tape} strokeWidth={CARD.tapeW} strokeLinecap="round"/>
-      <ellipse cx={lx} cy={ly} rx={TW*w*0.28} ry={TH*0.55} fill="rgba(255,255,240,0.55)"/>
+      <ellipse cx={lx} cy={ly} rx={eRx} ry={eRy} fill="rgba(255,255,240,0.55)"/>
       <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
             fontSize={fs} fontFamily="'Courier New',monospace" fontWeight="700"
             fill="#3A2008" style={{ pointerEvents:"none", userSelect:"none" }}>
