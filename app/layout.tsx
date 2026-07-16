@@ -33,7 +33,7 @@ export default function RootLayout({
       lang="en"
       className={`${spaceGrotesk.variable} ${dmSans.variable} ${jetbrainsMono.variable} h-full`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col isolate">
         <div aria-hidden="true" className="bg-canvas fixed inset-0 -z-10 pointer-events-none" />
         {children}
         <FloatingActions />
