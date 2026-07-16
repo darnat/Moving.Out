@@ -2,19 +2,32 @@
 
 import { useState, useRef, useEffect, useTransition, useOptimistic } from "react";
 import { useRouter } from "next/navigation";
-import { Box, BoxSize, Room } from "@/app/generated/prisma/client";
+import { Box, BoxSize, Room, FurnitureItem } from "@/app/generated/prisma/client";
 import { placeBox, unplaceBox } from "@/lib/actions/grid";
 import { setRetrieved } from "@/lib/actions/boxes";
+import { placeFurnitureItem, unplaceFurnitureItem } from "@/lib/actions/furniture";
 
 type BoxWithRelations = Box & { boxSize: BoxSize; room: Room };
+
+/* ─── Footprint: generic placed-item shape for snap/stack logic ─── */
+type Footprint = {
+  id: string;
+  gridCol: number;
+  gridRow: number;
+  stackLevel: number;
+  wc: number; dc: number; hc: number;
+  label: string;
+};
 
 /* ─── Constants ─── */
 const TW = 60; const TH = TW / 2; const LH = 50; const PAD = 28;
 
 /* ─── Colours ─── */
 const CARD = { top:"#D0AA7A", right:"#B08855", front:"#8E6B3E", stroke:"#62461A", tape:"#A07822", tapeW:2.5 };
+const FURN = { top:"#7B95AE", right:"#5C7A96", front:"#456180", stroke:"#354D65", seam:"#567A98" };
 const FLOOR_FILL = "#EDE8DF"; const FLOOR_STROKE = "#D0C8BA";
 const GHOST_FILL = "rgba(232,86,42,0.10)"; const GHOST_STROKE = "rgba(232,86,42,0.55)";
+const GHOST_FURN_FILL = "rgba(91,140,190,0.12)"; const GHOST_FURN_STROKE = "rgba(91,140,190,0.6)";
 
 /* ─── Helpers ─── */
 function ix(col: number, row: number, ox: number) { return ox + (col - row) * TW / 2; }
@@ -23,6 +36,16 @@ function pts(c: [number,number][]) { return c.map(([x,y]) => `${x},${y}`).join("
 function bwc(bs: BoxSize) { return (bs.widthIn  || bs.widthCells  * 12) / 12; }
 function bdc(bs: BoxSize) { return (bs.depthIn  || bs.depthCells  * 12) / 12; }
 function bhc(bs: BoxSize) { return (bs.heightIn || bs.heightCells * 12) / 12; }
+
+function boxFootprint(b: BoxWithRelations): Footprint {
+  return { id: b.id, gridCol: b.gridCol!, gridRow: b.gridRow!, stackLevel: b.stackLevel!,
+           wc: bwc(b.boxSize), dc: bdc(b.boxSize), hc: bhc(b.boxSize), label: b.labelNumber };
+}
+function furnitureFootprint(f: FurnitureItem): Footprint {
+  return { id: f.id, gridCol: f.gridCol!, gridRow: f.gridRow!, stackLevel: f.stackLevel!,
+           wc: f.widthIn / 12, dc: f.depthIn / 12, hc: f.heightIn / 12,
+           label: f.groupName ?? f.name };
+}
 
 function Spinner() {
   return (
@@ -33,49 +56,44 @@ function Spinner() {
   );
 }
 
-/* ─── Snap + suggestion (pure, no React state) ─── */
+/* ─── Snap + suggestion (works on Footprint[], no BoxSize dependency) ─── */
 function snapPoint(
   svgX: number, svgY: number,
   ox: number, oy: number,
   wCells: number, dCells: number,
-  selfBoxSize: BoxSize,
-  placed: BoxWithRelations[],
+  selfW: number, selfD: number,
+  placed: Footprint[],
   selfId: string | null,
 ): { col: number; row: number } | null {
   const fcol = ((svgX - ox) / (TW/2) + (svgY - oy) / (TH/2)) / 2;
   const frow = ((svgY - oy) / (TH/2) - (svgX - ox) / (TW/2)) / 2;
   if (fcol < -0.5 || frow < -0.5 || fcol > wCells + 0.5 || frow > dCells + 0.5) return null;
-  const sw = bwc(selfBoxSize); const sd = bdc(selfBoxSize);
+  const sw = selfW; const sd = selfD;
   const cc: number[] = []; const rc: number[] = [];
   for (let c = 0; c <= wCells; c++) cc.push(c);
   for (let r = 0; r <= dCells; r++) rc.push(r);
   for (const b of placed) {
     if (b.id === selfId) continue;
-    const bw_v = bwc(b.boxSize); const bd_v = bdc(b.boxSize);
-    cc.push(b.gridCol! + bw_v);       // adjacent right of support box
-    rc.push(b.gridRow! + bd_v);       // adjacent bottom of support box
-    cc.push(b.gridCol! + bw_v - sw);  // self right edge aligns with support right (inside)
-    rc.push(b.gridRow! + bd_v - sd);  // self bottom edge aligns with support bottom (inside)
+    cc.push(b.gridCol + b.wc);
+    rc.push(b.gridRow + b.dc);
+    cc.push(b.gridCol + b.wc - sw);
+    rc.push(b.gridRow + b.dc - sd);
   }
   let rawC = cc.reduce((a, c) => Math.abs(a - fcol) <= Math.abs(c - fcol) ? a : c);
   let rawR = rc.reduce((a, r) => Math.abs(a - frow) <= Math.abs(r - frow) ? a : r);
 
-  // Safety: if cursor is inside a support box but the snap snapped outside it (to its
-  // right/bottom edge), re-snap using only candidates that keep the dragged-box centre
-  // inside that box — otherwise the stacking suggestion never fires.
   for (const b of placed) {
     if (b.id === selfId) continue;
-    const bw_v = bwc(b.boxSize); const bd_v = bdc(b.boxSize);
-    if (!(fcol >= b.gridCol! && fcol <= b.gridCol! + bw_v &&
-          frow >= b.gridRow! && frow <= b.gridRow! + bd_v)) continue;
-    if (rawC + sw/2 >= b.gridCol! && rawC + sw/2 <= b.gridCol! + bw_v &&
-        rawR + sd/2 >= b.gridRow! && rawR + sd/2 <= b.gridRow! + bd_v) break;
-    const icc = cc.filter(c => c + sw/2 >= b.gridCol! && c + sw/2 <= b.gridCol! + bw_v);
-    const irc = rc.filter(r => r + sd/2 >= b.gridRow! && r + sd/2 <= b.gridRow! + bd_v);
+    if (!(fcol >= b.gridCol && fcol <= b.gridCol + b.wc &&
+          frow >= b.gridRow && frow <= b.gridRow + b.dc)) continue;
+    if (rawC + sw/2 >= b.gridCol && rawC + sw/2 <= b.gridCol + b.wc &&
+        rawR + sd/2 >= b.gridRow && rawR + sd/2 <= b.gridRow + b.dc) break;
+    const icc = cc.filter(c => c + sw/2 >= b.gridCol && c + sw/2 <= b.gridCol + b.wc);
+    const irc = rc.filter(r => r + sd/2 >= b.gridRow && r + sd/2 <= b.gridRow + b.dc);
     rawC = icc.length ? icc.reduce((a,c) => Math.abs(a-fcol)<=Math.abs(c-fcol)?a:c)
-                      : Math.max(b.gridCol!-sw/2, Math.min(b.gridCol!+bw_v-sw/2, fcol-sw/2));
+                      : Math.max(b.gridCol-sw/2, Math.min(b.gridCol+b.wc-sw/2, fcol-sw/2));
     rawR = irc.length ? irc.reduce((a,r) => Math.abs(a-frow)<=Math.abs(r-frow)?a:r)
-                      : Math.max(b.gridRow!-sd/2, Math.min(b.gridRow!+bd_v-sd/2, frow-sd/2));
+                      : Math.max(b.gridRow-sd/2, Math.min(b.gridRow+b.dc-sd/2, frow-sd/2));
     break;
   }
 
@@ -87,28 +105,25 @@ function snapPoint(
 
 function stackSuggestion(
   col: number, row: number,
-  selfBoxSize: BoxSize,
-  placed: BoxWithRelations[],
+  selfW: number, selfD: number,
+  placed: Footprint[],
   selfId: string | null,
 ): { level: number; onBox: string } | null {
-  const sw = bwc(selfBoxSize); const sd = bdc(selfBoxSize);
-  // Center-of-mass rule: center of dragged box must be strictly inside the
-  // support box's footprint — prevents stacking on a sliver of overlap.
+  const sw = selfW; const sd = selfD;
   const cx = col + sw / 2; const cy = row + sd / 2;
   let top = 0; let name: string | null = null;
   for (const b of placed) {
     if (b.id === selfId) continue;
-    const bw_v = bwc(b.boxSize); const bd_v = bdc(b.boxSize);
-    if (cx >= b.gridCol! && cx <= b.gridCol! + bw_v &&
-        cy >= b.gridRow! && cy <= b.gridRow! + bd_v) {
-      const t = b.stackLevel! + bhc(b.boxSize);
-      if (t > top) { top = t; name = b.labelNumber; }
+    if (cx >= b.gridCol && cx <= b.gridCol + b.wc &&
+        cy >= b.gridRow && cy <= b.gridRow + b.dc) {
+      const t = b.stackLevel + b.hc;
+      if (t > top) { top = t; name = b.label; }
     }
   }
   return top > 0 ? { level: top, onBox: name! } : null;
 }
 
-/* ─── Box faces ─── */
+/* ─── Box shape ─── */
 function BoxShape({ box, ox, oy, isSelected, onSelect, inPlaceMode, opacity = 1 }: {
   box: BoxWithRelations; ox: number; oy: number;
   isSelected: boolean; onSelect: () => void; inPlaceMode: boolean; opacity?: number;
@@ -135,8 +150,6 @@ function BoxShape({ box, ox, oy, isSelected, onSelect, inPlaceMode, opacity = 1 
   const tapeB: [number,number] = [(BL[0]+BR[0])/2, (BL[1]+BR[1])/2];
   const lx = (TL[0]+TR[0]+BR[0]+BL[0])/4;
   const ly = (TL[1]+TR[1]+BR[1]+BL[1])/4;
-  // Ellipse must stay inside the parallelogram top face.
-  // For the isometric rhombus: (rx/a)²+(ry/b)²≤1 where a=(w+d)·TW/4, b=(w+d)·TH/4.
   const eRx = Math.min(w * TW * 0.28, (w + d) * TW * 0.15);
   const eRy = Math.min(d * TH * 0.48, (w + d) * TH * 0.15);
   const fs  = Math.max(7, Math.min(11, eRx * 0.65));
@@ -169,7 +182,60 @@ function BoxShape({ box, ox, oy, isSelected, onSelect, inPlaceMode, opacity = 1 
   );
 }
 
-/* ─── Ghost outline ─── */
+/* ─── Furniture shape ─── */
+function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opacity = 1 }: {
+  item: FurnitureItem; ox: number; oy: number;
+  isSelected: boolean; onSelect: () => void; inPlaceMode: boolean; opacity?: number;
+}) {
+  const col = item.gridCol ?? 0; const row = item.gridRow ?? 0;
+  const w = item.widthIn / 12; const d = item.depthIn / 12; const h = item.heightIn / 12;
+  const z0 = (item.stackLevel ?? 1) - 1; const z1 = z0 + h;
+
+  const TL: [number,number] = [ix(col,   row,   ox), iy(col,   row,   z1, oy)];
+  const TR: [number,number] = [ix(col+w, row,   ox), iy(col+w, row,   z1, oy)];
+  const BR: [number,number] = [ix(col+w, row+d, ox), iy(col+w, row+d, z1, oy)];
+  const BL: [number,number] = [ix(col,   row+d, ox), iy(col,   row+d, z1, oy)];
+  const TRb: [number,number] = [ix(col+w, row,   ox), iy(col+w, row,   z0, oy)];
+  const BRb: [number,number] = [ix(col+w, row+d, ox), iy(col+w, row+d, z0, oy)];
+  const BLb: [number,number] = [ix(col,   row+d, ox), iy(col,   row+d, z0, oy)];
+
+  const topC   = isSelected ? "#9DC0E0" : FURN.top;
+  const rightC = isSelected ? "#7AA0C8" : FURN.right;
+  const frontC = isSelected ? "#5C85B0" : FURN.front;
+  const strokeC = isSelected ? "#3A6090" : FURN.stroke;
+  const sw2 = isSelected ? 1.5 : 0.8;
+
+  // Cushion seam: mid-line across the top face (depth direction)
+  const seamL: [number,number] = [(TL[0]+BL[0])/2, (TL[1]+BL[1])/2];
+  const seamR: [number,number] = [(TR[0]+BR[0])/2, (TR[1]+BR[1])/2];
+
+  const lx = (TL[0]+TR[0]+BR[0]+BL[0])/4;
+  const ly = (TL[1]+TR[1]+BR[1]+BL[1])/4;
+  const eRx = Math.min(w * TW * 0.28, (w + d) * TW * 0.15);
+  const eRy = Math.min(d * TH * 0.48, (w + d) * TH * 0.15);
+  const fs  = Math.max(6, Math.min(10, eRx * 0.6));
+  const label = item.groupName ? item.groupName.slice(0, 9) : item.name.slice(0, 9);
+
+  return (
+    <g opacity={opacity}
+       onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onSelect(); }}
+       style={{ cursor: inPlaceMode ? "default" : "pointer" }}>
+      <polygon points={pts([BL,BR,BRb,BLb])} fill={frontC} stroke={strokeC} strokeWidth={sw2}/>
+      <polygon points={pts([TR,BR,BRb,TRb])} fill={rightC} stroke={strokeC} strokeWidth={sw2}/>
+      <polygon points={pts([TL,TR,BR,BL])} fill={topC} stroke={strokeC} strokeWidth={sw2}/>
+      <line x1={seamL[0]} y1={seamL[1]} x2={seamR[0]} y2={seamR[1]}
+            stroke={isSelected ? "#6A9AC0" : FURN.seam} strokeWidth={0.9} opacity={0.55}/>
+      <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
+            fontSize={fs} fontFamily="sans-serif" fontWeight="600"
+            fill={isSelected ? "#fff" : "rgba(255,255,255,0.82)"}
+            style={{ pointerEvents:"none", userSelect:"none" }}>
+        {label}
+      </text>
+    </g>
+  );
+}
+
+/* ─── Ghost outlines ─── */
 function GhostBox({ col,row,w,d,h,stackLevel,ox,oy }: {
   col:number;row:number;w:number;d:number;h:number;stackLevel:number;ox:number;oy:number;
 }) {
@@ -191,36 +257,73 @@ function GhostBox({ col,row,w,d,h,stackLevel,ox,oy }: {
   );
 }
 
+function GhostFurniture({ col,row,w,d,h,stackLevel,ox,oy }: {
+  col:number;row:number;w:number;d:number;h:number;stackLevel:number;ox:number;oy:number;
+}) {
+  const z0=stackLevel-1; const z1=z0+h;
+  const TL:  [number,number]=[ix(col,  row,  ox),iy(col,  row,  z1,oy)];
+  const TR:  [number,number]=[ix(col+w,row,  ox),iy(col+w,row,  z1,oy)];
+  const BR:  [number,number]=[ix(col+w,row+d,ox),iy(col+w,row+d,z1,oy)];
+  const BL:  [number,number]=[ix(col,  row+d,ox),iy(col,  row+d,z1,oy)];
+  const TRb: [number,number]=[ix(col+w,row,  ox),iy(col+w,row,  z0,oy)];
+  const BRb: [number,number]=[ix(col+w,row+d,ox),iy(col+w,row+d,z0,oy)];
+  const BLb: [number,number]=[ix(col,  row+d,ox),iy(col,  row+d,z0,oy)];
+  const g={fill:GHOST_FURN_FILL,stroke:GHOST_FURN_STROKE,strokeWidth:1.5,strokeDasharray:"5,3"};
+  return (
+    <g style={{pointerEvents:"none"}}>
+      <polygon points={pts([BL,BR,BRb,BLb])} {...g}/>
+      <polygon points={pts([TR,BR,BRb,TRb])} {...g}/>
+      <polygon points={pts([TL,TR,BR,BL])}   {...g}/>
+    </g>
+  );
+}
+
 /* ─── Main ─── */
-export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
-  boxes: BoxWithRelations[]; widthCells: number; depthCells: number; heightCells: number;
+export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heightCells }: {
+  boxes: BoxWithRelations[];
+  furnitureItems: FurnitureItem[];
+  widthCells: number; depthCells: number; heightCells: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const [selectedBox, setSelectedBox] = useState<BoxWithRelations | null>(null);
-  const [hoverCell,   setHoverCell]   = useState<{ col: number; row: number } | null>(null);
-  const [infoBox,     setInfoBox]     = useState<BoxWithRelations | null>(null);
-  const [error,       setError]       = useState("");
-  const [mode,        setMode]        = useState<"view" | "place">("view");
-  const [suggestion,  setSuggestion]  = useState<{ level: number; onBox: string } | null>(null);
-  const [isDragging,  setIsDragging]  = useState(false);
+  const [selectedBox,       setSelectedBox]       = useState<BoxWithRelations | null>(null);
+  const [selectedFurniture, setSelectedFurniture] = useState<FurnitureItem | null>(null);
+  const [hoverCell,         setHoverCell]         = useState<{ col: number; row: number } | null>(null);
+  const [infoBox,           setInfoBox]           = useState<BoxWithRelations | null>(null);
+  const [infoFurniture,     setInfoFurniture]     = useState<FurnitureItem | null>(null);
+  const [error,             setError]             = useState("");
+  const [mode,              setMode]              = useState<"view" | "place">("view");
+  const [suggestion,        setSuggestion]        = useState<{ level: number; onBox: string } | null>(null);
+  const [isDragging,        setIsDragging]        = useState(false);
 
-  const [optimisticBoxes, applyOptimistic] = useOptimistic(
+  const [optimisticBoxes, applyOptimisticBox] = useOptimistic(
     boxes,
     (current: BoxWithRelations[], patch: { id: string; gridCol: number; gridRow: number; stackLevel: number }) =>
       current.map(b => b.id === patch.id ? { ...b, ...patch } : b)
   );
 
+  const [optimisticFurniture, applyOptimisticFurniture] = useOptimistic(
+    furnitureItems,
+    (current: FurnitureItem[], patch: { id: string; gridCol: number; gridRow: number; stackLevel: number }) =>
+      current.map(f => f.id === patch.id ? { ...f, ...patch } : f)
+  );
+
   const placedBoxes   = optimisticBoxes.filter(b => b.gridCol !== null);
   const unplacedBoxes = optimisticBoxes.filter(b => b.gridCol === null);
-  const sortedBoxes   = [...placedBoxes].sort((a, b) => {
-    const da = a.gridCol! + a.gridRow!; const db = b.gridCol! + b.gridRow!;
-    return da !== db ? da - db : (a.stackLevel ?? 1) - (b.stackLevel ?? 1);
-  });
-  const isMoving = mode === "place" && !!selectedBox && selectedBox.gridCol !== null;
-  const effectiveLevel = suggestion?.level ?? 1;
+  const placedFurniture   = optimisticFurniture.filter(f => f.gridCol !== null);
+  const unplacedFurniture = optimisticFurniture.filter(f => f.gridCol === null);
+
+  const isMoving         = mode === "place" && !!selectedBox       && selectedBox.gridCol !== null;
+  const isMovingFurniture = mode === "place" && !!selectedFurniture && selectedFurniture.gridCol !== null;
+  const effectiveLevel   = suggestion?.level ?? 1;
+
+  // Combined footprints for snap/stack — includes both placed boxes and placed furniture
+  const allPlacedFootprints: Footprint[] = [
+    ...placedBoxes.map(boxFootprint),
+    ...placedFurniture.map(furnitureFootprint),
+  ];
 
   const OX   = depthCells  * TW/2 + PAD;
   const OY   = heightCells * LH   + PAD;
@@ -234,107 +337,154 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
     return () => window.removeEventListener("keydown", h);
   }, [mode]);
 
-  /* ── Commit placement: optimistic-first, snap back on failure ── */
-  function commitPlacement(boxId: string, col: number, row: number, level: number) {
+  /* ── Commit box placement ── */
+  function commitBoxPlacement(boxId: string, col: number, row: number, level: number) {
     startTransition(async () => {
-      // All of these fire before the first await → one synchronous render
-      applyOptimistic({ id: boxId, gridCol: col, gridRow: row, stackLevel: level });
+      applyOptimisticBox({ id: boxId, gridCol: col, gridRow: row, stackLevel: level });
       setIsDragging(false);
       setSelectedBox(null); setMode("view"); setHoverCell(null); setSuggestion(null);
 
       const result = await placeBox(boxId, col, row, level);
-      if (result.error) {
-        // useOptimistic auto-reverts when the transition ends → box snaps back
-        setError(result.error);
-        return;
-      }
-      setError("");
-      router.refresh();
+      if (result.error) { setError(result.error); return; }
+      setError(""); router.refresh();
+    });
+  }
+
+  /* ── Commit furniture placement ── */
+  function commitFurniturePlacement(itemId: string, col: number, row: number, level: number) {
+    startTransition(async () => {
+      applyOptimisticFurniture({ id: itemId, gridCol: col, gridRow: row, stackLevel: level });
+      setIsDragging(false);
+      setSelectedFurniture(null); setMode("view"); setHoverCell(null); setSuggestion(null);
+
+      const result = await placeFurnitureItem(itemId, col, row, level);
+      if (result.error) { setError(result.error); return; }
+      setError(""); router.refresh();
     });
   }
 
   /* ── Hover (non-drag place mode) ── */
   function handleSvgPointerMove(e: React.PointerEvent<SVGSVGElement>) {
-    if (isDragging || mode !== "place" || !selectedBox) return;
+    if (isDragging || mode !== "place") return;
     const rect = svgRef.current!.getBoundingClientRect();
     const sx = (e.clientX - rect.left) * svgW / rect.width;
     const sy = (e.clientY - rect.top)  * svgH / rect.height;
-    const snap = snapPoint(sx, sy, OX, OY, widthCells, depthCells, selectedBox.boxSize, placedBoxes, selectedBox.id);
-    if (!snap) { setHoverCell(null); setSuggestion(null); return; }
-    setHoverCell(snap);
-    const sug = stackSuggestion(snap.col, snap.row, selectedBox.boxSize, placedBoxes, selectedBox.id);
-    setSuggestion(sug);
+
+    if (selectedBox) {
+      const sw = bwc(selectedBox.boxSize); const sd = bdc(selectedBox.boxSize);
+      const snap = snapPoint(sx, sy, OX, OY, widthCells, depthCells, sw, sd, allPlacedFootprints, selectedBox.id);
+      if (!snap) { setHoverCell(null); setSuggestion(null); return; }
+      setHoverCell(snap);
+      setSuggestion(stackSuggestion(snap.col, snap.row, sw, sd, allPlacedFootprints, selectedBox.id));
+    } else if (selectedFurniture) {
+      const sw = selectedFurniture.widthIn / 12; const sd = selectedFurniture.depthIn / 12;
+      const snap = snapPoint(sx, sy, OX, OY, widthCells, depthCells, sw, sd, allPlacedFootprints, selectedFurniture.id);
+      if (!snap) { setHoverCell(null); setSuggestion(null); return; }
+      setHoverCell(snap);
+      setSuggestion(stackSuggestion(snap.col, snap.row, sw, sd, allPlacedFootprints, selectedFurniture.id));
+    }
   }
 
-  /* ── Click to place (non-drag) ── */
+  /* ── Click to place ── */
   function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
-    if (mode === "view") { setInfoBox(null); return; }
-    if (isDragging || !selectedBox || !hoverCell) return;
-    commitPlacement(selectedBox.id, hoverCell.col, hoverCell.row, suggestion?.level ?? 1);
+    if (mode === "view") { setInfoBox(null); setInfoFurniture(null); return; }
+    if (isDragging || !hoverCell) return;
+    if (selectedBox)       commitBoxPlacement(selectedBox.id, hoverCell.col, hoverCell.row, effectiveLevel);
+    else if (selectedFurniture) commitFurniturePlacement(selectedFurniture.id, hoverCell.col, hoverCell.row, effectiveLevel);
   }
 
-  /* ── Drag: document-level listeners avoid stale-closure issues ── */
+  /* ── Box drag ── */
   function handleDragPointerDown(e: React.PointerEvent, box: BoxWithRelations) {
-    e.stopPropagation();
-    e.preventDefault();
-
-    // Snapshot values that won't change during the drag
-    const boxId  = box.id;
-    const boxSize = box.boxSize;
-    const placed  = placedBoxes; // won't change while user is dragging
+    e.stopPropagation(); e.preventDefault();
+    const boxId = box.id;
+    const sw = bwc(box.boxSize); const sd = bdc(box.boxSize);
+    const placed = allPlacedFootprints;
 
     let snap = { col: box.gridCol!, row: box.gridRow! };
     let sug: { level: number; onBox: string } | null = null;
 
-    // Kick off React state immediately for rendering
-    setIsDragging(true);
-    setSelectedBox(box);
-    setInfoBox(null);
-    setMode("place");
-    setHoverCell(snap);
-    setSuggestion(null);
-    setError("");
+    setIsDragging(true); setSelectedBox(box); setInfoBox(null);
+    setMode("place"); setHoverCell(snap); setSuggestion(null); setError("");
 
     function onMove(ev: PointerEvent) {
-      const svg = svgRef.current;
-      if (!svg) return;
+      const svg = svgRef.current; if (!svg) return;
       const rect = svg.getBoundingClientRect();
       const sx = (ev.clientX - rect.left) * svgW / rect.width;
       const sy = (ev.clientY - rect.top)  * svgH / rect.height;
-      const s = snapPoint(sx, sy, OX, OY, widthCells, depthCells, boxSize, placed, boxId);
+      const s = snapPoint(sx, sy, OX, OY, widthCells, depthCells, sw, sd, placed, boxId);
       if (!s) return;
-      snap = s;
-      sug  = stackSuggestion(s.col, s.row, boxSize, placed, boxId);
-      // Batch these in one React flush to reduce jank
-      setHoverCell({ ...s });
-      setSuggestion(sug);
+      snap = s; sug = stackSuggestion(s.col, s.row, sw, sd, placed, boxId);
+      setHoverCell({ ...s }); setSuggestion(sug);
     }
-
     function onUp() {
       document.removeEventListener("pointermove", onMove, true);
       document.removeEventListener("pointerup",   onUp,   true);
-      commitPlacement(boxId, snap.col, snap.row, sug?.level ?? 1);
+      commitBoxPlacement(boxId, snap.col, snap.row, sug?.level ?? 1);
     }
+    document.addEventListener("pointermove", onMove, true);
+    document.addEventListener("pointerup",   onUp,   true);
+  }
 
+  /* ── Furniture drag ── */
+  function handleFurnitureDragPointerDown(e: React.PointerEvent, item: FurnitureItem) {
+    e.stopPropagation(); e.preventDefault();
+    const itemId = item.id;
+    const sw = item.widthIn / 12; const sd = item.depthIn / 12;
+    const placed = allPlacedFootprints;
+
+    let snap = { col: item.gridCol!, row: item.gridRow! };
+    let sug: { level: number; onBox: string } | null = null;
+
+    setIsDragging(true); setSelectedFurniture(item); setInfoFurniture(null);
+    setMode("place"); setHoverCell(snap); setSuggestion(null); setError("");
+
+    function onMove(ev: PointerEvent) {
+      const svg = svgRef.current; if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const sx = (ev.clientX - rect.left) * svgW / rect.width;
+      const sy = (ev.clientY - rect.top)  * svgH / rect.height;
+      const s = snapPoint(sx, sy, OX, OY, widthCells, depthCells, sw, sd, placed, itemId);
+      if (!s) return;
+      snap = s; sug = stackSuggestion(s.col, s.row, sw, sd, placed, itemId);
+      setHoverCell({ ...s }); setSuggestion(sug);
+    }
+    function onUp() {
+      document.removeEventListener("pointermove", onMove, true);
+      document.removeEventListener("pointerup",   onUp,   true);
+      commitFurniturePlacement(itemId, snap.col, snap.row, sug?.level ?? 1);
+    }
     document.addEventListener("pointermove", onMove, true);
     document.addEventListener("pointerup",   onUp,   true);
   }
 
   /* ── Other actions ── */
   function handleMoveBox(box: BoxWithRelations) {
-    setSelectedBox(box); setInfoBox(null); setMode("place");
-    setHoverCell(null); setSuggestion(null); setError("");
+    setSelectedBox(box); setSelectedFurniture(null); setInfoBox(null); setInfoFurniture(null);
+    setMode("place"); setHoverCell(null); setSuggestion(null); setError("");
+  }
+  function handleMoveFurniture(item: FurnitureItem) {
+    setSelectedFurniture(item); setSelectedBox(null); setInfoFurniture(null); setInfoBox(null);
+    setMode("place"); setHoverCell(null); setSuggestion(null); setError("");
   }
   function cancelPlace() {
-    setSelectedBox(null); setHoverCell(null); setSuggestion(null);
+    setSelectedBox(null); setSelectedFurniture(null);
+    setHoverCell(null); setSuggestion(null);
     setMode("view"); setError(""); setIsDragging(false);
   }
-  async function handleUnplace() {
+  async function handleUnplaceBox() {
     if (!infoBox || isPending) return;
     startTransition(async () => {
       const result = await unplaceBox(infoBox.id);
       if (result.error) { setError(result.error); return; }
       setInfoBox(null); router.refresh();
+    });
+  }
+  async function handleUnplaceFurniture() {
+    if (!infoFurniture || isPending) return;
+    startTransition(async () => {
+      const result = await unplaceFurnitureItem(infoFurniture.id);
+      if (result.error) { setError(result.error); return; }
+      setInfoFurniture(null); router.refresh();
     });
   }
   async function handleRetrieve() {
@@ -374,7 +524,6 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
     const by=topY-BH-12;
     return (
       <g style={{filter:"drop-shadow(0 2px 5px rgba(0,0,0,0.2))"}}>
-        {/* Drag handle */}
         <g onPointerDown={e=>handleDragPointerDown(e as unknown as React.PointerEvent, infoBox)}
            style={{cursor:"grab",touchAction:"none"}}>
           <rect x={bx} y={by} width={BW} height={BH} rx={7} fill="white" stroke="#D0C8BA" strokeWidth={1}/>
@@ -383,11 +532,40 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
                   fill="none" stroke="#62461A" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"/>
           </g>
         </g>
-        {/* Remove (×) */}
-        <g onClick={e=>{e.stopPropagation();handleUnplace();}} style={{cursor:"pointer"}}>
+        <g onClick={e=>{e.stopPropagation();handleUnplaceBox();}} style={{cursor:"pointer"}}>
           <rect x={bx+BW+gap} y={by} width={BW} height={BH} rx={7} fill="white" stroke="#FFD0C0" strokeWidth={1}/>
           <text x={bx+BW+gap+BW/2} y={by+BH/2+1} textAnchor="middle" dominantBaseline="middle"
                 fontSize={17} fill="#E8562A" style={{pointerEvents:"none",userSelect:"none"}}>×</text>
+        </g>
+      </g>
+    );
+  }
+
+  /* ── SVG overlay buttons above selected furniture ── */
+  function renderFurnitureOverlay() {
+    if (!infoFurniture || mode !== "view") return null;
+    const col=infoFurniture.gridCol!; const row=infoFurniture.gridRow!;
+    const w=infoFurniture.widthIn/12; const d=infoFurniture.depthIn/12; const h=infoFurniture.heightIn/12;
+    const z1=(infoFurniture.stackLevel??1)-1+h;
+    const topY=Math.min(iy(col,row,z1,OY),iy(col+w,row,z1,OY),iy(col+w,row+d,z1,OY),iy(col,row+d,z1,OY));
+    const cx=(ix(col,row,OX)+ix(col+w,row,OX)+ix(col+w,row+d,OX)+ix(col,row+d,OX))/4;
+    const BW=30; const BH=28; const gap=5;
+    const bx=cx-(BW+gap/2);
+    const by=topY-BH-12;
+    return (
+      <g style={{filter:"drop-shadow(0 2px 5px rgba(0,0,0,0.2))"}}>
+        <g onPointerDown={e=>handleFurnitureDragPointerDown(e as unknown as React.PointerEvent, infoFurniture)}
+           style={{cursor:"grab",touchAction:"none"}}>
+          <rect x={bx} y={by} width={BW} height={BH} rx={7} fill="white" stroke="#C0CED8" strokeWidth={1}/>
+          <g transform={`translate(${bx+BW/2-7},${by+BH/2-7})`} style={{pointerEvents:"none"}}>
+            <path d="M7 0v14M0 7h14M7 0L5 2.5M7 0L9 2.5M7 14L5 11.5M7 14L9 11.5M0 7L2.5 5M0 7L2.5 9M14 7L11.5 5M14 7L11.5 9"
+                  fill="none" stroke="#354D65" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"/>
+          </g>
+        </g>
+        <g onClick={e=>{e.stopPropagation();handleUnplaceFurniture();}} style={{cursor:"pointer"}}>
+          <rect x={bx+BW+gap} y={by} width={BW} height={BH} rx={7} fill="white" stroke="#C0CED8" strokeWidth={1}/>
+          <text x={bx+BW+gap+BW/2} y={by+BH/2+1} textAnchor="middle" dominantBaseline="middle"
+                fontSize={17} fill="#5C7A96" style={{pointerEvents:"none",userSelect:"none"}}>×</text>
         </g>
       </g>
     );
@@ -405,6 +583,24 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
       );
     }
   }
+
+  /* ── Depth-sorted render list (boxes + furniture together) ── */
+  type SortedItem =
+    | { kind: "box"; fp: Footprint; box: BoxWithRelations }
+    | { kind: "furniture"; fp: Footprint; fi: FurnitureItem };
+
+  const sortedItems: SortedItem[] = [
+    ...placedBoxes
+      .filter(b => !(isMoving && b.id === selectedBox?.id))
+      .map(b => ({ kind: "box" as const, fp: boxFootprint(b), box: b })),
+    ...placedFurniture
+      .filter(f => !(isMovingFurniture && f.id === selectedFurniture?.id))
+      .map(f => ({ kind: "furniture" as const, fp: furnitureFootprint(f), fi: f })),
+  ].sort((a, b) => {
+    const da = a.fp.gridCol + a.fp.gridRow;
+    const db = b.fp.gridCol + b.fp.gridRow;
+    return da !== db ? da - db : a.fp.stackLevel - b.fp.stackLevel;
+  });
 
   return (
     <div className="flex gap-6 flex-col lg:flex-row">
@@ -424,43 +620,64 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
           {renderWalls()}
           {floorTiles}
 
-          {/* Placed boxes (moving box excluded from sorted list; shown separately dimmed) */}
-          {sortedBoxes
-            .filter(b => !(isMoving && b.id === selectedBox?.id))
-            .map(box => (
-              <BoxShape key={box.id} box={box} ox={OX} oy={OY}
-                        isSelected={infoBox?.id===box.id}
-                        onSelect={()=>setInfoBox(box)}
-                        inPlaceMode={mode==="place"}/>
-            ))}
+          {/* Depth-sorted placed items */}
+          {sortedItems.map(item =>
+            item.kind === "box"
+              ? <BoxShape key={item.box.id} box={item.box} ox={OX} oy={OY}
+                          isSelected={infoBox?.id===item.box.id}
+                          onSelect={()=>{setInfoBox(item.box);setInfoFurniture(null);}}
+                          inPlaceMode={mode==="place"}/>
+              : <FurnitureShape key={item.fi.id} item={item.fi} ox={OX} oy={OY}
+                                isSelected={infoFurniture?.id===item.fi.id}
+                                onSelect={()=>{setInfoFurniture(item.fi);setInfoBox(null);}}
+                                inPlaceMode={mode==="place"}/>
+          )}
 
           {/* Origin of moving box — dimmed */}
           {isMoving && selectedBox && selectedBox.gridCol !== null && (
             <BoxShape box={selectedBox} ox={OX} oy={OY}
                       isSelected={false} onSelect={()=>{}} inPlaceMode={true} opacity={0.22}/>
           )}
+          {/* Origin of moving furniture — dimmed */}
+          {isMovingFurniture && selectedFurniture && selectedFurniture.gridCol !== null && (
+            <FurnitureShape item={selectedFurniture} ox={OX} oy={OY}
+                            isSelected={false} onSelect={()=>{}} inPlaceMode={true} opacity={0.22}/>
+          )}
 
-          {/* Dragged box at cursor — full opacity while holding */}
+          {/* Dragged box at cursor */}
           {isDragging && selectedBox && hoverCell && (
             <BoxShape
               box={{...selectedBox, gridCol:hoverCell.col, gridRow:hoverCell.row, stackLevel:effectiveLevel}}
               ox={OX} oy={OY} isSelected={false} onSelect={()=>{}} inPlaceMode={true}/>
           )}
+          {/* Dragged furniture at cursor */}
+          {isDragging && selectedFurniture && hoverCell && (
+            <FurnitureShape
+              item={{...selectedFurniture, gridCol:hoverCell.col, gridRow:hoverCell.row, stackLevel:effectiveLevel}}
+              ox={OX} oy={OY} isSelected={false} onSelect={()=>{}} inPlaceMode={true}/>
+          )}
 
-          {/* Ghost for non-drag hover */}
+          {/* Ghost for non-drag hover — box */}
           {!isDragging && hoverCell && selectedBox && mode==="place" && (
             <GhostBox col={hoverCell.col} row={hoverCell.row}
                       w={bwc(selectedBox.boxSize)} d={bdc(selectedBox.boxSize)} h={bhc(selectedBox.boxSize)}
                       stackLevel={effectiveLevel} ox={OX} oy={OY}/>
           )}
+          {/* Ghost for non-drag hover — furniture */}
+          {!isDragging && hoverCell && selectedFurniture && mode==="place" && (
+            <GhostFurniture col={hoverCell.col} row={hoverCell.row}
+                            w={selectedFurniture.widthIn/12} d={selectedFurniture.depthIn/12} h={selectedFurniture.heightIn/12}
+                            stackLevel={effectiveLevel} ox={OX} oy={OY}/>
+          )}
 
-          {/* Buttons above selected box */}
           {renderBoxOverlay()}
+          {renderFurnitureOverlay()}
         </svg>
       </div>
 
       {/* ── Sidebar ── */}
       <div className="w-full lg:w-60 space-y-4 shrink-0">
+        {/* Place-mode banner */}
         {mode==="place" && selectedBox && (
           <div className="rounded-2xl px-3 py-2 text-xs leading-relaxed glass-orange"
                style={{background:"var(--color-freight-tint)",
@@ -468,6 +685,16 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
                        color:"var(--color-freight)"}}>
             {isMoving ? "Moving" : "Placing"}{" "}
             <span className="font-bold label-number">{selectedBox.labelNumber}</span>
+            {isDragging ? " — release to drop" : " — hover & click to place"}
+          </div>
+        )}
+        {mode==="place" && selectedFurniture && (
+          <div className="rounded-2xl px-3 py-2 text-xs leading-relaxed"
+               style={{background:"rgba(91,122,150,0.14)",
+                       border:"1px solid rgba(91,140,190,0.3)",
+                       color:"#9DC0E0"}}>
+            {isMovingFurniture ? "Moving" : "Placing"}{" "}
+            <span className="font-bold">{selectedFurniture.name}</span>
             {isDragging ? " — release to drop" : " — hover & click to place"}
           </div>
         )}
@@ -481,7 +708,7 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
 
         {error && <p className="text-xs px-1" style={{color:"var(--color-freight)"}}>{error}</p>}
 
-        {/* Unplaced list */}
+        {/* Unplaced boxes */}
         <div>
           <h2 className="text-xs font-medium uppercase tracking-wider mb-2" style={{color:"var(--color-pencil)"}}>
             Unplaced boxes
@@ -491,7 +718,7 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
               <li key={b.id}>
                 <button
                   data-testid={`select-box-${b.labelNumber}`}
-                  onClick={()=>{setSelectedBox(b);setMode("place");setInfoBox(null);setHoverCell(null);setSuggestion(null);setError("");}}
+                  onClick={()=>{setSelectedBox(b);setSelectedFurniture(null);setMode("place");setInfoBox(null);setInfoFurniture(null);setHoverCell(null);setSuggestion(null);setError("");}}
                   className="w-full rounded-2xl px-3 py-2.5 text-left text-sm glass"
                   style={{background:selectedBox?.id===b.id?"var(--color-freight-tint)":"var(--color-surface)",
                           border:selectedBox?.id===b.id?"1px solid color-mix(in srgb, var(--color-freight) 40%, transparent)":"1px solid var(--color-kraft)"}}>
@@ -511,6 +738,39 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
           </ul>
         </div>
 
+        {/* Unplaced furniture */}
+        {(unplacedFurniture.length > 0 || placedFurniture.length > 0) && (
+          <div>
+            <h2 className="text-xs font-medium uppercase tracking-wider mb-2" style={{color:"var(--color-pencil)"}}>
+              Furniture
+            </h2>
+            <ul className="space-y-1.5">
+              {unplacedFurniture.map(fi => (
+                <li key={fi.id}>
+                  <button
+                    onClick={()=>{setSelectedFurniture(fi);setSelectedBox(null);setMode("place");setInfoFurniture(null);setInfoBox(null);setHoverCell(null);setSuggestion(null);setError("");}}
+                    className="w-full rounded-2xl px-3 py-2.5 text-left text-sm glass"
+                    style={{background:selectedFurniture?.id===fi.id?"rgba(91,122,150,0.18)":"var(--color-surface)",
+                            border:selectedFurniture?.id===fi.id?"1px solid rgba(91,140,190,0.4)":"1px solid var(--color-kraft)"}}>
+                    <span className="font-semibold block text-sm"
+                          style={{color:selectedFurniture?.id===fi.id?"#9DC0E0":"var(--color-ink)"}}>
+                      {fi.name}
+                    </span>
+                    {fi.groupName && (
+                      <span className="text-xs" style={{color:"var(--color-pencil)"}}>
+                        {fi.groupName} · {fi.widthIn}"×{fi.depthIn}"
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+              {unplacedFurniture.length===0 && placedFurniture.length > 0 && (
+                <li className="text-xs py-1" style={{color:"var(--color-pencil)"}}>All placed on map</li>
+              )}
+            </ul>
+          </div>
+        )}
+
         {mode==="place" && (
           <button onClick={cancelPlace} disabled={isPending}
                   className="w-full rounded-2xl px-4 py-2.5 text-sm glass"
@@ -519,7 +779,7 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
           </button>
         )}
 
-        {/* Info panel (sidebar fallback when overlay not visible) */}
+        {/* Box info panel */}
         {infoBox && mode==="view" && (
           <div data-testid="cell-info-panel" className="rounded-2xl p-4 space-y-3 glass"
                style={{background:"var(--color-surface)",border:"1px solid var(--color-kraft)"}}>
@@ -541,12 +801,41 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
                       style={{background:"var(--color-paper)",border:"1px solid var(--color-kraft)",color:"var(--color-ink)"}}>
                 {isPending?<Spinner/>:null} Retrieved
               </button>
-              <button onClick={handleUnplace} data-testid="unplace-btn" disabled={isPending}
+              <button onClick={handleUnplaceBox} data-testid="unplace-btn" disabled={isPending}
                       className="rounded-lg px-3 py-2 text-xs flex items-center gap-1.5"
                       style={{border:"1px solid color-mix(in srgb, var(--color-freight) 30%, transparent)",color:"var(--color-freight)"}}>
                 {isPending?<Spinner/>:null} Remove
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Furniture info panel */}
+        {infoFurniture && mode==="view" && (
+          <div className="rounded-2xl p-4 space-y-3 glass"
+               style={{background:"var(--color-surface)",border:"1px solid rgba(91,140,190,0.25)"}}>
+            <div>
+              <p className="font-bold text-base" style={{color:"var(--color-ink)"}}>{infoFurniture.name}</p>
+              {infoFurniture.groupName && (
+                <p className="text-xs mt-0.5" style={{color:"var(--color-pencil)"}}>{infoFurniture.groupName}</p>
+              )}
+              <p className="text-xs mt-1 label-number" style={{color:"var(--color-pencil)"}}>
+                {infoFurniture.widthIn}"W × {infoFurniture.depthIn}"D × {infoFurniture.heightIn}"H
+              </p>
+              <p className="text-xs mt-0.5" style={{color:"var(--color-pencil)"}}>
+                {Math.round(infoFurniture.gridCol!*12)}" from left · {Math.round(infoFurniture.gridRow!*12)}" from back
+              </p>
+            </div>
+            <button onClick={()=>handleMoveFurniture(infoFurniture)} disabled={isPending}
+                    className="w-full rounded-lg py-2.5 text-sm font-medium flex items-center justify-center gap-2"
+                    style={{background:"rgba(91,122,150,0.25)",border:"1px solid rgba(91,140,190,0.35)",color:"#9DC0E0"}}>
+              Move
+            </button>
+            <button onClick={handleUnplaceFurniture} disabled={isPending}
+                    className="w-full rounded-lg py-2 text-xs flex items-center justify-center gap-1.5"
+                    style={{border:"1px solid rgba(91,140,190,0.25)",color:"var(--color-pencil)"}}>
+              {isPending?<Spinner/>:null} Remove from map
+            </button>
           </div>
         )}
       </div>

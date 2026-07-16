@@ -62,3 +62,14 @@ export const getCachedBoxSizes = (userId: string) =>
     ["box-sizes", userId],
     { tags: [userTag(userId)] }
   )();
+
+export const getCachedFurnitureItems = (userId: string) =>
+  unstable_cache(
+    () =>
+      prisma.furnitureItem.findMany({
+        where: { userId },
+        orderBy: [{ groupName: "asc" }, { name: "asc" }],
+      }),
+    ["furniture-items", userId],
+    { tags: [userTag(userId)] }
+  )();

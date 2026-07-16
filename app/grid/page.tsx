@@ -1,15 +1,16 @@
 import { auth } from "@/lib/auth";
 import { Nav } from "@/app/components/Nav";
 import { GridClient } from "./GridClient";
-import { getCachedGridBoxes, getCachedStorageUnit } from "@/lib/data";
+import { getCachedGridBoxes, getCachedStorageUnit, getCachedFurnitureItems } from "@/lib/data";
 
 export default async function GridPage() {
   const session = await auth();
   const userId = session!.user!.id!;
 
-  const [boxes, storageUnit] = await Promise.all([
+  const [boxes, storageUnit, furnitureItems] = await Promise.all([
     getCachedGridBoxes(userId),
     getCachedStorageUnit(userId),
+    getCachedFurnitureItems(userId),
   ]);
 
   const unit = storageUnit ?? { widthCells: 10, depthCells: 20, heightCells: 8 };
@@ -29,7 +30,7 @@ export default async function GridPage() {
             {unit.widthCells} × {unit.depthCells} cells
           </p>
         </div>
-        <GridClient boxes={boxes} widthCells={unit.widthCells} depthCells={unit.depthCells} heightCells={unit.heightCells} />
+        <GridClient boxes={boxes} furnitureItems={furnitureItems} widthCells={unit.widthCells} depthCells={unit.depthCells} heightCells={unit.heightCells} />
       </main>
     </div>
   );

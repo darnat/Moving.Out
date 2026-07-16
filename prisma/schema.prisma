@@ -34,16 +34,17 @@ model VerificationToken {
 }
 
 model User {
-  id            String       @id @default(cuid())
-  name          String?
-  email         String?      @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  storageUnit   StorageUnit?
-  boxSizes      BoxSize[]
-  rooms         Room[]
-  boxes         Box[]
+  id             String          @id @default(cuid())
+  name           String?
+  email          String?         @unique
+  emailVerified  DateTime?
+  image          String?
+  accounts       Account[]
+  storageUnit    StorageUnit?
+  boxSizes       BoxSize[]
+  rooms          Room[]
+  boxes          Box[]
+  furnitureItems FurnitureItem[]
 }
 
 model StorageUnit {
@@ -108,4 +109,18 @@ model Photo {
   url       String
   createdAt DateTime @default(now())
   box       Box      @relation(fields: [boxId], references: [id], onDelete: Cascade)
+}
+
+model FurnitureItem {
+  id         String  @id @default(cuid())
+  userId     String
+  name       String
+  groupName  String?
+  widthIn    Float
+  depthIn    Float
+  heightIn   Float
+  gridCol    Float?
+  gridRow    Float?
+  stackLevel Float?
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
