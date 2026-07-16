@@ -69,14 +69,18 @@ function stackSuggestion(
   selfId: string | null,
 ): { level: number; onBox: string } | null {
   const sw = bwc(selfBoxSize); const sd = bdc(selfBoxSize);
-  const EPS = 0.001;
+  // Center-of-mass rule: center of dragged box must be strictly inside the
+  // support box's footprint — prevents stacking on a sliver of overlap.
+  const cx = col + sw / 2; const cy = row + sd / 2;
   let top = 0; let name: string | null = null;
   for (const b of placed) {
     if (b.id === selfId) continue;
     const bw = bwc(b.boxSize); const bd = bdc(b.boxSize);
-    const co = col < b.gridCol! + bw - EPS && col + sw > b.gridCol! + EPS;
-    const ro = row < b.gridRow! + bd - EPS && row + sd > b.gridRow! + EPS;
-    if (co && ro) { const t = b.stackLevel! + b.boxSize.heightCells; if (t > top) { top = t; name = b.labelNumber; } }
+    if (cx > b.gridCol! && cx < b.gridCol! + bw &&
+        cy > b.gridRow! && cy < b.gridRow! + bd) {
+      const t = b.stackLevel! + b.boxSize.heightCells;
+      if (t > top) { top = t; name = b.labelNumber; }
+    }
   }
   return top > 0 ? { level: top, onBox: name! } : null;
 }
@@ -300,7 +304,11 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
   }
   async function handleUnplace() {
     if (!infoBox || isPending) return;
-    startTransition(async () => { await unplaceBox(infoBox.id); setInfoBox(null); router.refresh(); });
+    startTransition(async () => {
+      const result = await unplaceBox(infoBox.id);
+      if (result.error) { setError(result.error); return; }
+      setInfoBox(null); router.refresh();
+    });
   }
   async function handleRetrieve() {
     if (!infoBox || isPending) return;

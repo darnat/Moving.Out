@@ -71,12 +71,40 @@ export async function placeBox(
   return {};
 }
 
-export async function unplaceBox(boxId: string) {
+export async function unplaceBox(boxId: string): Promise<{ error?: string }> {
   const userId = await requireUserId();
+
+  const box = await prisma.box.findFirst({
+    where: { id: boxId, userId },
+    include: { boxSize: true },
+  });
+
+  if (box?.gridCol != null && box.stackLevel != null) {
+    const topLevel = box.stackLevel + box.boxSize.heightCells;
+    const bwVal = bw(box.boxSize); const bdVal = bd(box.boxSize);
+
+    const above = await prisma.box.findMany({
+      where: { userId, retrieved: false, gridCol: { not: null }, stackLevel: topLevel, id: { not: boxId } },
+      include: { boxSize: true },
+    });
+
+    const stacked = above.filter(b => {
+      const colOk = box.gridCol! < b.gridCol! + bw(b.boxSize) - EPS && box.gridCol! + bwVal > b.gridCol! + EPS;
+      const rowOk = box.gridRow! < b.gridRow! + bd(b.boxSize) - EPS && box.gridRow! + bdVal > b.gridRow! + EPS;
+      return colOk && rowOk;
+    });
+
+    if (stacked.length > 0) {
+      const names = stacked.map(b => b.labelNumber).join(", ");
+      return { error: `Remove ${names} first` };
+    }
+  }
+
   await prisma.box.updateMany({
     where: { id: boxId, userId },
     data: { gridCol: null, gridRow: null, stackLevel: null },
   });
   revalidatePath("/grid");
   revalidatePath("/");
+  return {};
 }
