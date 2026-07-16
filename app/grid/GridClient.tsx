@@ -257,6 +257,51 @@ export function GridClient({
     setError("");
   }
 
+  /* ── Back walls ── */
+  function renderWalls() {
+    const wallH = MAX_VIS_LEVELS;
+
+    // Right wall — vertical plane at row=0, spans col 0..widthCells (appears on the right)
+    const rTL: [number, number] = [ix(0,          0, OX), iy(0,          0, wallH, OY)];
+    const rTR: [number, number] = [ix(widthCells, 0, OX), iy(widthCells, 0, wallH, OY)];
+    const rBR: [number, number] = [ix(widthCells, 0, OX), iy(widthCells, 0, 0,     OY)];
+    const rBL: [number, number] = [ix(0,          0, OX), iy(0,          0, 0,     OY)];
+
+    // Left wall — vertical plane at col=0, spans row 0..depthCells (appears on the left)
+    const lTR: [number, number] = [ix(0, 0,          OX), iy(0, 0,          wallH, OY)];
+    const lTL: [number, number] = [ix(0, depthCells, OX), iy(0, depthCells, wallH, OY)];
+    const lBL: [number, number] = [ix(0, depthCells, OX), iy(0, depthCells, 0,     OY)];
+    const lBR: [number, number] = [ix(0, 0,          OX), iy(0, 0,          0,     OY)];
+
+    const panelLines = Array.from({ length: wallH - 1 }, (_, i) => {
+      const z = i + 1;
+      return (
+        <g key={z}>
+          <line x1={ix(0, 0, OX)} y1={iy(0, 0, z, OY)}
+                x2={ix(widthCells, 0, OX)} y2={iy(widthCells, 0, z, OY)}
+                stroke="rgba(0,0,0,0.055)" strokeWidth={0.6} />
+          <line x1={ix(0, 0, OX)} y1={iy(0, 0, z, OY)}
+                x2={ix(0, depthCells, OX)} y2={iy(0, depthCells, z, OY)}
+                stroke="rgba(0,0,0,0.055)" strokeWidth={0.6} />
+        </g>
+      );
+    });
+
+    return (
+      <>
+        {/* Left wall — col=0 side, slightly darker (shadow) */}
+        <polygon points={pts([lTR, lTL, lBL, lBR])} fill="#C8C3BB" stroke="#A8A098" strokeWidth={0.8} />
+        {/* Right wall — row=0 side, lighter (lit) */}
+        <polygon points={pts([rTL, rTR, rBR, rBL])} fill="#DDDAD0" stroke="#A8A098" strokeWidth={0.8} />
+        {panelLines}
+        {/* Corner where the two walls meet */}
+        <line x1={ix(0, 0, OX)} y1={iy(0, 0, 0, OY)}
+              x2={ix(0, 0, OX)} y2={iy(0, 0, wallH, OY)}
+              stroke="#948D84" strokeWidth={1.5} />
+      </>
+    );
+  }
+
   /* ── Floor tiles ── */
   const floorTiles: React.ReactNode[] = [];
   for (let diag = 0; diag < widthCells + depthCells - 1; diag++) {
@@ -300,6 +345,9 @@ export function GridClient({
           viewBox={`0 0 ${svgW} ${svgH}`}
           style={{ display: "block" }}
         >
+          {/* Back walls — rendered first (furthest from viewer) */}
+          {renderWalls()}
+
           {/* Floor */}
           {floorTiles}
 
