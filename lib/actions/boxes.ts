@@ -52,6 +52,24 @@ export async function deleteBox(boxId: string) {
   revalidatePath("/");
 }
 
+export async function addPhoto(boxId: string, url: string) {
+  const userId = await requireUserId();
+  const box = await prisma.box.findFirst({ where: { id: boxId, userId } });
+  if (!box) throw new Error("Box not found");
+  await prisma.photo.create({ data: { boxId, url } });
+  revalidatePath(`/boxes/${boxId}`);
+}
+
+export async function removePhoto(photoId: string) {
+  const userId = await requireUserId();
+  const photo = await prisma.photo.findFirst({
+    where: { id: photoId, box: { userId } },
+  });
+  if (!photo) throw new Error("Photo not found");
+  await prisma.photo.delete({ where: { id: photoId } });
+  revalidatePath(`/boxes/${photo.boxId}`);
+}
+
 export async function setRetrieved(boxId: string, retrieved: boolean) {
   const userId = await requireUserId();
   await prisma.box.updateMany({

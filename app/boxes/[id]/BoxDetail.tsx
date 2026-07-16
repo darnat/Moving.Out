@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Box, Room, BoxSize, Item, Photo } from "@/app/generated/prisma/client";
-import { addItem, removeItem, deleteBox, setRetrieved } from "@/lib/actions/boxes";
+import { addItem, removeItem, deleteBox, setRetrieved, addPhoto, removePhoto } from "@/lib/actions/boxes";
 
 type BoxWithRelations = Box & {
   room: Room;
@@ -15,6 +15,8 @@ type BoxWithRelations = Box & {
 export function BoxDetail({ box }: { box: BoxWithRelations }) {
   const router = useRouter();
   const [itemInput, setItemInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleAddItem() {
     const trimmed = itemInput.trim();
@@ -36,6 +38,28 @@ export function BoxDetail({ box }: { box: BoxWithRelations }) {
 
   async function handleToggleRetrieved() {
     await setRetrieved(box.id, !box.retrieved);
+    router.refresh();
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const { url } = await res.json();
+      await addPhoto(box.id, url);
+      router.refresh();
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemovePhoto(photoId: string) {
+    await removePhoto(photoId);
     router.refresh();
   }
 
@@ -188,6 +212,65 @@ export function BoxDetail({ box }: { box: BoxWithRelations }) {
           <p className="text-sm py-2" style={{ color: "var(--color-pencil)" }}>
             No items recorded yet
           </p>
+        )}
+      </div>
+
+      {/* Photos */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2
+            className="text-xs font-medium uppercase tracking-wider"
+            style={{ color: "var(--color-pencil)" }}
+          >
+            Photos — {box.photos.length} photo{box.photos.length !== 1 ? "s" : ""}
+          </h2>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium"
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-kraft)",
+              color: uploading ? "var(--color-pencil)" : "var(--color-ink)",
+            }}
+          >
+            {uploading ? "Uploading…" : "+ Add photo"}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhotoUpload}
+          />
+        </div>
+
+        {box.photos.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {box.photos.map((photo) => (
+              <div key={photo.id} className="relative group aspect-square">
+                <img
+                  src={photo.url}
+                  alt=""
+                  className="w-full h-full object-cover rounded-xl"
+                  style={{ border: "1px solid var(--color-kraft)" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemovePhoto(photo.id)}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-kraft)",
+                    color: "var(--color-freight)",
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
