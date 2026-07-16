@@ -523,7 +523,7 @@ export function GridClient({ boxes, widthCells, depthCells, heightCells }: {
               <p className="label-number font-bold text-lg" style={{color:"var(--color-ink)"}}>{infoBox.labelNumber}</p>
               <p className="text-xs mt-1" style={{color:"var(--color-pencil)"}}>{infoBox.room.name} · {infoBox.boxSize.name}</p>
               <p className="text-xs mt-0.5" style={{color:"var(--color-pencil)"}}>
-                {Math.round(infoBox.gridCol!*12)}" from left · {Math.round(infoBox.gridRow!*12)}" from back · Level {infoBox.stackLevel}
+                {Math.round(infoBox.gridCol!*12)}" from left · {Math.round(infoBox.gridRow!*12)}" from back · Level {Math.round(infoBox.stackLevel!)}
               </p>
             </div>
             <button onClick={()=>handleMoveBox(infoBox)} disabled={isPending}

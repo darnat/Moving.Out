@@ -246,7 +246,7 @@ function BoxCard({
 
         {box.gridCol !== null && (
           <p className="text-xs" style={{ color: "var(--color-pencil)" }}>
-            Col {box.gridCol} · Row {box.gridRow} · Level {box.stackLevel}
+            Col {box.gridCol} · Row {box.gridRow} · Level {Math.round(box.stackLevel!)}
           </p>
         )}
 

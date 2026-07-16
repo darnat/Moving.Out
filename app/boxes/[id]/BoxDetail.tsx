@@ -173,7 +173,7 @@ export function BoxDetail({ box, rooms }: { box: BoxWithRelations; rooms: Room[]
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <span className="text-xs font-medium" style={{ color: "var(--color-freight)" }}>
-              Col {box.gridCol} · Row {box.gridRow} · Level {box.stackLevel}
+              Col {box.gridCol} · Row {box.gridRow} · Level {Math.round(box.stackLevel!)}
             </span>
           </div>
         )}
