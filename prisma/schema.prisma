@@ -117,6 +117,7 @@ model FurnitureItem {
   name       String
   groupName  String?
   color      String  @default("#7B95AE")
+  rounded    Boolean @default(false)
   widthIn    Float
   depthIn    Float
   heightIn   Float

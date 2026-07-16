@@ -1,0 +1,1 @@
+ALTER TABLE "FurnitureItem" ADD COLUMN "rounded" BOOLEAN NOT NULL DEFAULT false;

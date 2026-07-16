@@ -29,6 +29,7 @@ export function FurnitureDetail({ item }: { item: FurnitureItem }) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [color, setColor] = useState(item.color);
+  const [rounded, setRounded] = useState(item.rounded);
   const [name, setName] = useState(item.name);
   const [groupName, setGroupName] = useState(item.groupName ?? "");
   const [widthIn, setWidthIn] = useState(item.widthIn);
@@ -50,6 +51,14 @@ export function FurnitureDetail({ item }: { item: FurnitureItem }) {
     });
   }
 
+  async function handleRoundedChange(val: boolean) {
+    setRounded(val);
+    await run("rounded", async () => {
+      await updateFurnitureItem(item.id, { rounded: val });
+      router.refresh();
+    });
+  }
+
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await run("save", async () => {
@@ -57,6 +66,7 @@ export function FurnitureDetail({ item }: { item: FurnitureItem }) {
         name,
         groupName: groupName.trim() || null,
         color,
+        rounded,
         widthIn,
         depthIn,
         heightIn,
@@ -151,6 +161,30 @@ export function FurnitureDetail({ item }: { item: FurnitureItem }) {
             {color.toUpperCase()}
           </div>
         </div>
+      </section>
+
+      {/* Rounded edges */}
+      <section className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>
+            Rounded edges {loading === "rounded" && <Spinner />}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--color-pencil)" }}>Softer corners on the map</p>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => handleRoundedChange(!rounded)}
+          className="relative w-11 h-6 rounded-full transition-colors disabled:opacity-50"
+          style={{ background: rounded ? "var(--color-freight)" : "var(--color-kraft)" }}
+          role="switch"
+          aria-checked={rounded}
+        >
+          <span
+            className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+            style={{ transform: rounded ? "translateX(20px)" : "translateX(0)" }}
+          />
+        </button>
       </section>
 
       {/* Edit form */}

@@ -26,8 +26,8 @@ export function Nav({ active }: { active?: "search" | "grid" | "settings" | "fur
 
         <nav className="flex items-center gap-1">
           <NavLink href="/" label="Boxes" active={active === "search"} />
-          <NavLink href="/grid" label="Map" active={active === "grid"} />
           <NavLink href="/furniture" label="Furniture" active={active === "furniture"} />
+          <NavLink href="/grid" label="Map" active={active === "grid"} />
           <NavLink href="/settings" label="Settings" active={active === "settings"} />
           <Link
             href="/boxes/new"

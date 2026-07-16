@@ -18,11 +18,13 @@ const inputStyle = {
 export function NewFurnitureForm() {
   const router = useRouter();
   const [color, setColor] = useState(PRESETS[0]);
+  const [rounded, setRounded] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     fd.set("color", color);
+    fd.set("rounded", String(rounded));
     await addFurnitureItem(fd);
     router.push("/furniture");
   }
@@ -120,6 +122,27 @@ export function NewFurnitureForm() {
             {color.toUpperCase()}
           </div>
         </div>
+      </div>
+
+      {/* Rounded edges */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>Rounded edges</p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--color-pencil)" }}>Softer corners on the map</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setRounded(r => !r)}
+          className="relative w-11 h-6 rounded-full transition-colors"
+          style={{ background: rounded ? "var(--color-freight)" : "var(--color-kraft)" }}
+          role="switch"
+          aria-checked={rounded}
+        >
+          <span
+            className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+            style={{ transform: rounded ? "translateX(20px)" : "translateX(0)" }}
+          />
+        </button>
       </div>
 
       {/* Actions */}

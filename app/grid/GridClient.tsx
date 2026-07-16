@@ -37,6 +37,42 @@ function shade(hex: string, factor: number): string {
   return `rgb(${clamp(r * factor)} ${clamp(g * factor)} ${clamp(b * factor)})`;
 }
 
+/* WCAG-based contrast: pick black or white label for a given hex + brightness */
+function labelColor(hex: string, factor = 1.0): string {
+  const clamp = (n: number) => Math.min(255, n * factor);
+  const toLinear = (c: number) => { const n = clamp(c) / 255; return n <= 0.04045 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; };
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+  return L > 0.179 ? "rgba(0,0,0,0.80)" : "rgba(255,255,255,0.88)";
+}
+
+/* Rounded-corner path for isometric faces — r=0 corners stay sharp */
+function roundFace(points: [number,number][], radii: number[]): string {
+  const n = points.length;
+  const parts: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const prev = points[(i - 1 + n) % n];
+    const curr = points[i];
+    const next = points[(i + 1) % n];
+    const r = radii[i];
+    if (r <= 0) {
+      parts.push(`${i === 0 ? "M" : "L"} ${curr[0].toFixed(1)} ${curr[1].toFixed(1)}`);
+    } else {
+      const d1x = curr[0]-prev[0]; const d1y = curr[1]-prev[1]; const d1l = Math.hypot(d1x,d1y)||1;
+      const d2x = next[0]-curr[0]; const d2y = next[1]-curr[1]; const d2l = Math.hypot(d2x,d2y)||1;
+      const rr = Math.min(r, d1l*0.45, d2l*0.45);
+      const p1x = curr[0]-(d1x/d1l)*rr; const p1y = curr[1]-(d1y/d1l)*rr;
+      const p2x = curr[0]+(d2x/d2l)*rr; const p2y = curr[1]+(d2y/d2l)*rr;
+      parts.push(`${i === 0 ? "M" : "L"} ${p1x.toFixed(1)} ${p1y.toFixed(1)}`);
+      parts.push(`Q ${curr[0].toFixed(1)} ${curr[1].toFixed(1)} ${p2x.toFixed(1)} ${p2y.toFixed(1)}`);
+    }
+  }
+  parts.push("Z");
+  return parts.join(" ");
+}
+
 /* ─── Helpers ─── */
 function ix(col: number, row: number, ox: number) { return ox + (col - row) * TW / 2; }
 function iy(col: number, row: number, z: number, oy: number) { return oy + (col + row) * TH / 2 - z * LH; }
@@ -227,18 +263,31 @@ function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opaci
   const fs  = Math.max(6, Math.min(10, eRx * 0.6));
   const label = item.groupName ? item.groupName.slice(0, 9) : item.name.slice(0, 9);
 
+  const R = 7;
+  const textFill = labelColor(base, sf);
+
   return (
     <g opacity={opacity}
        onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onSelect(); }}
        style={{ cursor: inPlaceMode ? "default" : "pointer" }}>
-      <polygon points={pts([BL,BR,BRb,BLb])} fill={frontC} stroke={strokeC} strokeWidth={sw2}/>
-      <polygon points={pts([TR,BR,BRb,TRb])} fill={rightC} stroke={strokeC} strokeWidth={sw2}/>
-      <polygon points={pts([TL,TR,BR,BL])} fill={topC} stroke={strokeC} strokeWidth={sw2}/>
+      {item.rounded ? (
+        <>
+          <path d={roundFace([BL,BR,BRb,BLb],[R,R,0,0])} fill={frontC} stroke={strokeC} strokeWidth={sw2}/>
+          <path d={roundFace([TR,BR,BRb,TRb],[R,R,0,0])} fill={rightC} stroke={strokeC} strokeWidth={sw2}/>
+          <path d={roundFace([TL,TR,BR,BL],[R,R,R,R])}   fill={topC}   stroke={strokeC} strokeWidth={sw2}/>
+        </>
+      ) : (
+        <>
+          <polygon points={pts([BL,BR,BRb,BLb])} fill={frontC} stroke={strokeC} strokeWidth={sw2}/>
+          <polygon points={pts([TR,BR,BRb,TRb])} fill={rightC} stroke={strokeC} strokeWidth={sw2}/>
+          <polygon points={pts([TL,TR,BR,BL])}   fill={topC}   stroke={strokeC} strokeWidth={sw2}/>
+        </>
+      )}
       <line x1={seamL[0]} y1={seamL[1]} x2={seamR[0]} y2={seamR[1]}
             stroke={seamC} strokeWidth={0.9} opacity={0.55}/>
       <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
             fontSize={fs} fontFamily="sans-serif" fontWeight="600"
-            fill={isSelected ? "#fff" : "rgba(255,255,255,0.82)"}
+            fill={textFill}
             style={{ pointerEvents:"none", userSelect:"none" }}>
         {label}
       </text>
@@ -268,8 +317,8 @@ function GhostBox({ col,row,w,d,h,stackLevel,ox,oy }: {
   );
 }
 
-function GhostFurniture({ col,row,w,d,h,stackLevel,ox,oy }: {
-  col:number;row:number;w:number;d:number;h:number;stackLevel:number;ox:number;oy:number;
+function GhostFurniture({ col,row,w,d,h,stackLevel,ox,oy,rounded }: {
+  col:number;row:number;w:number;d:number;h:number;stackLevel:number;ox:number;oy:number;rounded:boolean;
 }) {
   const z0=stackLevel-1; const z1=z0+h;
   const TL:  [number,number]=[ix(col,  row,  ox),iy(col,  row,  z1,oy)];
@@ -280,11 +329,22 @@ function GhostFurniture({ col,row,w,d,h,stackLevel,ox,oy }: {
   const BRb: [number,number]=[ix(col+w,row+d,ox),iy(col+w,row+d,z0,oy)];
   const BLb: [number,number]=[ix(col,  row+d,ox),iy(col,  row+d,z0,oy)];
   const g={fill:GHOST_FURN_FILL,stroke:GHOST_FURN_STROKE,strokeWidth:1.5,strokeDasharray:"5,3"};
+  const R=7;
   return (
     <g style={{pointerEvents:"none"}}>
-      <polygon points={pts([BL,BR,BRb,BLb])} {...g}/>
-      <polygon points={pts([TR,BR,BRb,TRb])} {...g}/>
-      <polygon points={pts([TL,TR,BR,BL])}   {...g}/>
+      {rounded ? (
+        <>
+          <path d={roundFace([BL,BR,BRb,BLb],[R,R,0,0])} {...g}/>
+          <path d={roundFace([TR,BR,BRb,TRb],[R,R,0,0])} {...g}/>
+          <path d={roundFace([TL,TR,BR,BL],[R,R,R,R])}   {...g}/>
+        </>
+      ) : (
+        <>
+          <polygon points={pts([BL,BR,BRb,BLb])} {...g}/>
+          <polygon points={pts([TR,BR,BRb,TRb])} {...g}/>
+          <polygon points={pts([TL,TR,BR,BL])}   {...g}/>
+        </>
+      )}
     </g>
   );
 }
@@ -678,7 +738,7 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
           {!isDragging && hoverCell && selectedFurniture && mode==="place" && (
             <GhostFurniture col={hoverCell.col} row={hoverCell.row}
                             w={selectedFurniture.widthIn/12} d={selectedFurniture.depthIn/12} h={selectedFurniture.heightIn/12}
-                            stackLevel={effectiveLevel} ox={OX} oy={OY}/>
+                            stackLevel={effectiveLevel} ox={OX} oy={OY} rounded={selectedFurniture.rounded}/>
           )}
 
           {renderBoxOverlay()}
