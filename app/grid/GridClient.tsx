@@ -282,21 +282,27 @@ function FurnitureShape({ item, ox, oy, isSelected, onSelect, inPlaceMode, opaci
        style={{ cursor: inPlaceMode ? "default" : "pointer" }}>
       {hexPath ? (
         <>
-          {/* Clip region = the rounded outer silhouette */}
           <defs>
             <clipPath id={clipId}>
               <path d={hexPath}/>
             </clipPath>
           </defs>
-          {/* Three sharp-cornered face fills clipped to the rounded hex */}
+          {/*
+            Pillow-cube technique:
+            1. Fill the rounded hex with a very dark base colour.
+            2. Draw each face as its own rounded polygon on top.
+            The dark base shows through wherever two rounded faces pull away
+            from their shared edge — this simulates the shadow of a 3-D
+            rounded edge without any complex filter or geometry.
+          */}
           <g clipPath={`url(#${clipId})`}>
-            <polygon points={pts([BL,BR,BRb,BLb])} fill={frontC}/>
-            <polygon points={pts([TR,BR,BRb,TRb])} fill={rightC}/>
-            <polygon points={pts([TL,TR,BR,BL])}   fill={topC}/>
+            <path d={hexPath} fill={shade(base, 0.30)}/>
+            <path d={roundFace([BL,BR,BRb,BLb],[R,R,R,R])} fill={frontC}/>
+            <path d={roundFace([TR,BR,BRb,TRb],[R,R,R,R])} fill={rightC}/>
+            <path d={roundFace([TL,TR,BR,BL],  [R,R,R,R])} fill={topC}/>
             <line x1={seamL[0]} y1={seamL[1]} x2={seamR[0]} y2={seamR[1]}
-                  stroke={seamC} strokeWidth={0.9} opacity={0.55}/>
+                  stroke={seamC} strokeWidth={0.9} opacity={0.45}/>
           </g>
-          {/* Single stroke on the unified outer rounded boundary */}
           <path d={hexPath} fill="none" stroke={strokeC} strokeWidth={sw2}/>
         </>
       ) : (
