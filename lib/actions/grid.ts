@@ -3,6 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/actions/auth";
 import { prisma } from "@/lib/prisma";
+import { BoxSize } from "@/app/generated/prisma/client";
+
+// Tolerance: boxes may touch (share a boundary) but not overlap
+const EPS = 0.0005;
+
+// Physical dimensions in cells, using actual inches when available
+function bw(bs: BoxSize) { return (bs.widthIn  || bs.widthCells  * 12) / 12; }
+function bd(bs: BoxSize) { return (bs.depthIn  || bs.depthCells  * 12) / 12; }
 
 export async function placeBox(
   boxId: string,
@@ -18,36 +26,30 @@ export async function placeBox(
   });
   if (!box) return { error: "Box not found" };
 
-  const { widthCells, depthCells, heightCells } = box.boxSize;
+  const nw = bw(box.boxSize);
+  const nd = bd(box.boxSize);
+  const nh = box.boxSize.heightCells;
 
-  // Cells the incoming box will occupy
-  const newCols = Array.from({ length: widthCells }, (_, i) => gridCol + i);
-  const newRows = Array.from({ length: depthCells }, (_, i) => gridRow + i);
-  const newLevels = Array.from({ length: heightCells }, (_, i) => stackLevel + i);
-
-  // Fetch all placed, non-retrieved boxes (excluding the one being moved)
   const placedBoxes = await prisma.box.findMany({
     where: { userId, id: { not: boxId }, retrieved: false, gridCol: { not: null } },
     include: { boxSize: true },
   });
 
-  // Check whether any existing box's full footprint overlaps the new box's footprint
-  const conflict = placedBoxes.find((existing) => {
-    const { widthCells: ew, depthCells: ed, heightCells: eh } = existing.boxSize;
-    const existingCols = Array.from({ length: ew }, (_, i) => existing.gridCol! + i);
-    const existingRows = Array.from({ length: ed }, (_, i) => existing.gridRow! + i);
-    const existingLevels = Array.from({ length: eh }, (_, i) => existing.stackLevel! + i);
+  const conflict = placedBoxes.find((b) => {
+    const ew = bw(b.boxSize);
+    const ed = bd(b.boxSize);
+    const eh = b.boxSize.heightCells;
 
-    return (
-      newCols.some((c) => existingCols.includes(c)) &&
-      newRows.some((r) => existingRows.includes(r)) &&
-      newLevels.some((l) => existingLevels.includes(l))
-    );
+    // Axis-aligned interval overlap in col, row, and stack level
+    const colOverlap   = gridCol    < b.gridCol!    + ew - EPS && gridCol    + nw > b.gridCol!    + EPS;
+    const rowOverlap   = gridRow    < b.gridRow!    + ed - EPS && gridRow    + nd > b.gridRow!    + EPS;
+    const levelOverlap = stackLevel < b.stackLevel! + eh       && stackLevel + nh > b.stackLevel!;
+
+    return colOverlap && rowOverlap && levelOverlap;
   });
 
-  if (conflict) return { error: `Cell occupied by ${conflict.labelNumber}` };
+  if (conflict) return { error: `Occupied by ${conflict.labelNumber}` };
 
-  // Include userId in the write to close the ownership TOCTOU gap
   await prisma.box.updateMany({
     where: { id: boxId, userId },
     data: { gridCol, gridRow, stackLevel },

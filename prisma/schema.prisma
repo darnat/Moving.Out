@@ -84,8 +84,8 @@ model Box {
   userId      String
   roomId      String
   boxSizeId   String
-  gridCol     Int?
-  gridRow     Int?
+  gridCol     Float?
+  gridRow     Float?
   stackLevel  Int?
   retrieved   Boolean @default(false)
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
