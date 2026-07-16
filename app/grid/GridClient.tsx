@@ -51,11 +51,34 @@ function snapPoint(
   for (let r = 0; r <= dCells; r++) rc.push(r);
   for (const b of placed) {
     if (b.id === selfId) continue;
-    cc.push(b.gridCol! + bwc(b.boxSize));
-    rc.push(b.gridRow! + bdc(b.boxSize));
+    const bw_v = bwc(b.boxSize); const bd_v = bdc(b.boxSize);
+    cc.push(b.gridCol! + bw_v);       // adjacent right of support box
+    rc.push(b.gridRow! + bd_v);       // adjacent bottom of support box
+    cc.push(b.gridCol! + bw_v - sw);  // self right edge aligns with support right (inside)
+    rc.push(b.gridRow! + bd_v - sd);  // self bottom edge aligns with support bottom (inside)
   }
-  const rawC = cc.reduce((a, c) => Math.abs(a - fcol) <= Math.abs(c - fcol) ? a : c);
-  const rawR = rc.reduce((a, r) => Math.abs(a - frow) <= Math.abs(r - frow) ? a : r);
+  let rawC = cc.reduce((a, c) => Math.abs(a - fcol) <= Math.abs(c - fcol) ? a : c);
+  let rawR = rc.reduce((a, r) => Math.abs(a - frow) <= Math.abs(r - frow) ? a : r);
+
+  // Safety: if cursor is inside a support box but the snap snapped outside it (to its
+  // right/bottom edge), re-snap using only candidates that keep the dragged-box centre
+  // inside that box — otherwise the stacking suggestion never fires.
+  for (const b of placed) {
+    if (b.id === selfId) continue;
+    const bw_v = bwc(b.boxSize); const bd_v = bdc(b.boxSize);
+    if (!(fcol >= b.gridCol! && fcol <= b.gridCol! + bw_v &&
+          frow >= b.gridRow! && frow <= b.gridRow! + bd_v)) continue;
+    if (rawC + sw/2 >= b.gridCol! && rawC + sw/2 <= b.gridCol! + bw_v &&
+        rawR + sd/2 >= b.gridRow! && rawR + sd/2 <= b.gridRow! + bd_v) break;
+    const icc = cc.filter(c => c + sw/2 >= b.gridCol! && c + sw/2 <= b.gridCol! + bw_v);
+    const irc = rc.filter(r => r + sd/2 >= b.gridRow! && r + sd/2 <= b.gridRow! + bd_v);
+    rawC = icc.length ? icc.reduce((a,c) => Math.abs(a-fcol)<=Math.abs(c-fcol)?a:c)
+                      : Math.max(b.gridCol!-sw/2, Math.min(b.gridCol!+bw_v-sw/2, fcol-sw/2));
+    rawR = irc.length ? irc.reduce((a,r) => Math.abs(a-frow)<=Math.abs(r-frow)?a:r)
+                      : Math.max(b.gridRow!-sd/2, Math.min(b.gridRow!+bd_v-sd/2, frow-sd/2));
+    break;
+  }
+
   return {
     col: Math.max(0, Math.min(wCells - sw, Math.round(rawC * 10000) / 10000)),
     row: Math.max(0, Math.min(dCells - sd, Math.round(rawR * 10000) / 10000)),
@@ -75,9 +98,9 @@ function stackSuggestion(
   let top = 0; let name: string | null = null;
   for (const b of placed) {
     if (b.id === selfId) continue;
-    const bw = bwc(b.boxSize); const bd = bdc(b.boxSize);
-    if (cx > b.gridCol! && cx < b.gridCol! + bw &&
-        cy > b.gridRow! && cy < b.gridRow! + bd) {
+    const bw_v = bwc(b.boxSize); const bd_v = bdc(b.boxSize);
+    if (cx >= b.gridCol! && cx <= b.gridCol! + bw_v &&
+        cy >= b.gridRow! && cy <= b.gridRow! + bd_v) {
       const t = b.stackLevel! + b.boxSize.heightCells;
       if (t > top) { top = t; name = b.labelNumber; }
     }
