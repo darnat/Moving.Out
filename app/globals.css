@@ -54,16 +54,16 @@ body {
   background-image:
     repeating-linear-gradient(
        26.57deg,
-       rgba(255, 255, 255, 0.03) 0,
-       rgba(255, 255, 255, 0.03) 0.5px,
-       transparent 0.5px,
+       rgba(255, 255, 255, 0.08) 0,
+       rgba(255, 255, 255, 0.08) 1px,
+       transparent 1px,
        transparent 30px
     ),
     repeating-linear-gradient(
       -26.57deg,
-       rgba(255, 255, 255, 0.03) 0,
-       rgba(255, 255, 255, 0.03) 0.5px,
-       transparent 0.5px,
+       rgba(255, 255, 255, 0.08) 0,
+       rgba(255, 255, 255, 0.08) 1px,
+       transparent 1px,
        transparent 30px
     ),
     radial-gradient(ellipse 75% 55% at  8% 78%, rgba(255, 107, 43, 0.16) 0%, transparent 58%),
