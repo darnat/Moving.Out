@@ -101,7 +101,7 @@ function stackSuggestion(
     const bw_v = bwc(b.boxSize); const bd_v = bdc(b.boxSize);
     if (cx >= b.gridCol! && cx <= b.gridCol! + bw_v &&
         cy >= b.gridRow! && cy <= b.gridRow! + bd_v) {
-      const t = b.stackLevel! + b.boxSize.heightCells;
+      const t = b.stackLevel! + bhc(b.boxSize);
       if (t > top) { top = t; name = b.labelNumber; }
     }
   }

@@ -11,6 +11,7 @@ const EPS = 0.0005;
 // Physical dimensions in cells, using actual inches when available
 function bw(bs: BoxSize) { return (bs.widthIn  || bs.widthCells  * 12) / 12; }
 function bd(bs: BoxSize) { return (bs.depthIn  || bs.depthCells  * 12) / 12; }
+function bh(bs: BoxSize) { return (bs.heightIn || bs.heightCells * 12) / 12; }
 
 export async function placeBox(
   boxId: string,
@@ -28,7 +29,7 @@ export async function placeBox(
 
   const nw = bw(box.boxSize);
   const nd = bd(box.boxSize);
-  const nh = box.boxSize.heightCells;
+  const nh = bh(box.boxSize);
 
   const placedBoxes = await prisma.box.findMany({
     where: { userId, id: { not: boxId }, retrieved: false, gridCol: { not: null } },
@@ -38,12 +39,12 @@ export async function placeBox(
   const conflict = placedBoxes.find((b) => {
     const ew = bw(b.boxSize);
     const ed = bd(b.boxSize);
-    const eh = b.boxSize.heightCells;
+    const eh = bh(b.boxSize);
 
     // Axis-aligned interval overlap in col, row, and stack level
     const colOverlap   = gridCol    < b.gridCol!    + ew - EPS && gridCol    + nw > b.gridCol!    + EPS;
     const rowOverlap   = gridRow    < b.gridRow!    + ed - EPS && gridRow    + nd > b.gridRow!    + EPS;
-    const levelOverlap = stackLevel < b.stackLevel! + eh       && stackLevel + nh > b.stackLevel!;
+    const levelOverlap = stackLevel < b.stackLevel! + eh - EPS && stackLevel + nh > b.stackLevel! + EPS;
 
     return colOverlap && rowOverlap && levelOverlap;
   });
@@ -56,7 +57,7 @@ export async function placeBox(
       const ew = bw(b.boxSize); const ed = bd(b.boxSize);
       const colOk = gridCol < b.gridCol! + ew - EPS && gridCol + nw > b.gridCol! + EPS;
       const rowOk = gridRow < b.gridRow! + ed - EPS && gridRow + nd > b.gridRow! + EPS;
-      return colOk && rowOk && b.stackLevel! + b.boxSize.heightCells === stackLevel;
+      return colOk && rowOk && Math.abs(b.stackLevel! + bh(b.boxSize) - stackLevel) < 0.01;
     });
     if (!hasSupport) return { error: "Nothing to stack on at that level" };
   }
@@ -80,11 +81,12 @@ export async function unplaceBox(boxId: string): Promise<{ error?: string }> {
   });
 
   if (box?.gridCol != null && box.stackLevel != null) {
-    const topLevel = box.stackLevel + box.boxSize.heightCells;
+    const topLevel = box.stackLevel + bh(box.boxSize);
     const bwVal = bw(box.boxSize); const bdVal = bd(box.boxSize);
 
     const above = await prisma.box.findMany({
-      where: { userId, retrieved: false, gridCol: { not: null }, stackLevel: topLevel, id: { not: boxId } },
+      where: { userId, retrieved: false, gridCol: { not: null },
+               stackLevel: { gte: topLevel - 0.01, lte: topLevel + 0.01 }, id: { not: boxId } },
       include: { boxSize: true },
     });
 
