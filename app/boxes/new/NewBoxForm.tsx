@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Room, BoxSize } from "@/app/generated/prisma/client";
 import { createBox, addPhoto } from "@/lib/actions/boxes";
+import { upload } from "@vercel/blob/client";
+import { compressImage } from "@/lib/imageCompress";
 import { QrScanner } from "@/app/components/QrScanner";
 import { haptic } from "@/lib/haptic";
 
@@ -99,12 +101,12 @@ export function NewBoxForm({
         const results = await Promise.all(
           photos.map(async ({ file }) => {
             try {
-              const form = new FormData();
-              form.append("file", file);
-              const res = await fetch("/api/upload", { method: "POST", body: form });
-              if (!res.ok) return false;
-              const { url } = await res.json();
-              await addPhoto(boxId, url);
+              const compressed = await compressImage(file);
+              const blob = await upload(compressed.name, compressed, {
+                access: "private",
+                handleUploadUrl: "/api/upload",
+              });
+              await addPhoto(boxId, blob.url);
               return true;
             } catch {
               return false;

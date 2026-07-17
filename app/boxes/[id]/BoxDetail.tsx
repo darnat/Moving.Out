@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Box, Room, BoxSize, Item, Photo } from "@/app/generated/prisma/client";
 import { addItem, removeItem, deleteBox, setRetrieved, addPhoto, removePhoto, updateBoxRoom, updateBoxLabel } from "@/lib/actions/boxes";
+import { upload } from "@vercel/blob/client";
+import { compressImage } from "@/lib/imageCompress";
 import { PhotoGallery } from "@/app/components/PhotoGallery";
 import { haptic } from "@/lib/haptic";
 
@@ -103,16 +105,17 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
     if (busy) return;
     setPhotoError(null);
     await run("upload", async () => {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: form });
-      if (!res.ok) {
+      try {
+        const compressed = await compressImage(file);
+        const blob = await upload(compressed.name, compressed, {
+          access: "private",
+          handleUploadUrl: "/api/upload",
+        });
+        await addPhoto(box.id, blob.url);
+        router.refresh();
+      } catch {
         setPhotoError("Upload failed — please try again");
-        return;
       }
-      const { url } = await res.json();
-      await addPhoto(box.id, url);
-      router.refresh();
     });
   }
 

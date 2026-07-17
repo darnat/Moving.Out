@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
+/* Pre-warm the WASM binary as soon as this module loads (at app startup via
+   FloatingActions in the layout) so it's compiled and cached before the user
+   opens the scanner for the first time. */
+void import("zxing-wasm/reader");
+
 export function QrScanner({
   onScan,
   onClose,
