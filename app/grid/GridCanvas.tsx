@@ -146,8 +146,8 @@ function SceneWalls({ wc, dc, hc }: { wc: number; dc: number; hc: number }) {
 
   return (
     <group>
-      {/* Left wall: X=0 plane, facing +X (rotation around Y by -π/2) */}
-      <mesh position={[0, hc / 2, dc / 2]} rotation={[0, -Math.PI / 2, 0]}>
+      {/* Left wall: X=0 plane, facing +X (rotation around Y by +π/2) */}
+      <mesh position={[0, hc / 2, dc / 2]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[dc, hc]} />
         <meshStandardMaterial color="#C8C3BB" roughness={1} metalness={0} />
       </mesh>
