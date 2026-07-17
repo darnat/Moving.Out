@@ -328,6 +328,24 @@ function FloorInteraction({ wc, dc, onMove, onClick }: {
   );
 }
 
+/* ── Canvas texture from an emoji character ── */
+function useEmojiTexture(emoji: string | null): THREE.CanvasTexture | null {
+  return useMemo(() => {
+    if (!emoji || typeof document === "undefined") return null;
+    const size = 128;
+    const canvas = document.createElement("canvas");
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+    ctx.font = `${size * 0.68}px serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(emoji, size / 2, size / 2 + size * 0.04);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  }, [emoji]);
+}
+
 /* ── Box mesh — click to select only, no drag gesture ── */
 function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1, roomColor, didPanRef }: {
   box: BoxWithRelations;
@@ -342,8 +360,10 @@ function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1, roomCol
   const col = c ?? 0; const row = r ?? 0;
   const wc  = bwc(boxSize); const dc = bdc(boxSize); const hc = bhc(boxSize);
   const z0  = (sl ?? 1) - 1;
-  const edgeGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(wc, hc, dc)), [wc, hc, dc]);
-  const baseColor = isSelected ? "#FFD060" : roomColor;
+  const edgeGeo    = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(wc, hc, dc)), [wc, hc, dc]);
+  const baseColor  = isSelected ? "#FFD060" : roomColor;
+  const emojiTex   = useEmojiTexture(box.icon ?? null);
+  const iconSize   = Math.min(wc, dc) * 0.68;
 
   return (
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
@@ -356,7 +376,13 @@ function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1, roomCol
       <lineSegments geometry={edgeGeo} renderOrder={2}>
         <lineBasicMaterial color={shade(roomColor, 0.42)} transparent opacity={opacity * 0.55} />
       </lineSegments>
-      {opacity > 0.3 && (
+      {opacity > 0.3 && emojiTex && (
+        <mesh position={[0, hc / 2 + 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
+          <planeGeometry args={[iconSize, iconSize]} />
+          <meshBasicMaterial map={emojiTex} transparent depthWrite={false} opacity={opacity} />
+        </mesh>
+      )}
+      {opacity > 0.3 && !emojiTex && (
         <Text
           position={[0, hc / 2 + 0.01, 0]}
           rotation={[-Math.PI / 2, 0, 0]}

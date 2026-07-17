@@ -4,11 +4,38 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Box, Room, BoxSize, Item, Photo } from "@/app/generated/prisma/client";
-import { addItem, removeItem, deleteBox, setRetrieved, addPhoto, removePhoto, updateBoxRoom, updateBoxLabel } from "@/lib/actions/boxes";
+import { addItem, removeItem, deleteBox, setRetrieved, addPhoto, removePhoto, updateBoxRoom, updateBoxLabel, updateBoxIcon } from "@/lib/actions/boxes";
 import { upload } from "@vercel/blob/client";
 import { compressImage } from "@/lib/imageCompress";
 import { PhotoGallery } from "@/app/components/PhotoGallery";
 import { haptic } from "@/lib/haptic";
+
+const PICTOS = [
+  // Clothing & Accessories
+  "👕","👔","👗","🧥","🧣","🧤","👟","👠","👞","👒","🧢","👜","🎒",
+  // Kitchen & Dining
+  "🍳","🥘","🍽️","☕","🥂","🍷","🫙","🔪","🧊",
+  // Books & Office
+  "📚","📖","📝","📁","💼","🖊️","🖨️",
+  // Electronics
+  "💻","🖥️","📱","🎮","📷","🎧","📺","🔌","🖱️",
+  // Bedroom & Home
+  "🛏️","🪞","🛋️","🪑","🕯️","🧸","🪆","🖼️","🪟",
+  // Bathroom & Health
+  "🛁","🧴","💊","🪥","🧼","🪒",
+  // Sports & Toys
+  "⚽","🏋️","🎿","🎾","🧩","🎲","🏓","🎪",
+  // Tools & Hardware
+  "🔧","🔨","🪚","🔩","🪛","🔦","🧰",
+  // Art & Music
+  "🎨","🎵","🎹","🎸","🎺","📸",
+  // Plants & Garden
+  "🪴","🌱","🌸","🌿","🪺",
+  // Food & Pantry
+  "🥫","🧃","🫒","🧈","🥚",
+  // Other
+  "📦","🎁","🏺","🪬","✨","🗺️",
+];
 
 type BoxWithRelations = Box & {
   room: Room;
@@ -32,6 +59,7 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
   const [loading, setLoading] = useState<string | null>(null);
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState(box.labelNumber);
+  const [icon, setIcon] = useState<string | null>(box.icon ?? null);
   const [editingRoom, setEditingRoom] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [gallery, setGallery] = useState<{ index: number } | null>(null);
@@ -79,6 +107,14 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
     setEditingLabel(false);
     await run("label", async () => {
       await updateBoxLabel(box.id, trimmed);
+      router.refresh();
+    });
+  }
+
+  async function handleIconChange(newIcon: string | null) {
+    setIcon(newIcon);
+    await run("icon", async () => {
+      await updateBoxIcon(box.id, newIcon);
       router.refresh();
     });
   }
@@ -255,6 +291,53 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
             </Link>
           </div>
         ) : null}
+      </div>
+
+      {/* Picto */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>
+            Picto {loading === "icon" && <Spinner />}
+          </h2>
+          {icon && (
+            <button
+              type="button"
+              onClick={() => handleIconChange(null)}
+              disabled={busy}
+              className="text-xs"
+              style={{ color: "var(--color-pencil)" }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+
+        {icon && (
+          <div
+            className="flex items-center justify-center rounded-2xl py-3"
+            style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", fontSize: 48 }}
+          >
+            {icon}
+          </div>
+        )}
+
+        <div className="grid grid-cols-8 gap-1.5">
+          {PICTOS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => handleIconChange(p)}
+              disabled={busy}
+              className="flex items-center justify-center rounded-xl aspect-square text-2xl transition-transform active:scale-90"
+              style={{
+                background: icon === p ? "var(--color-freight-tint)" : "var(--color-surface)",
+                border: `1px solid ${icon === p ? "rgba(255,107,43,0.4)" : "var(--color-kraft)"}`,
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Items */}

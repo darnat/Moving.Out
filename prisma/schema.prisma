@@ -82,6 +82,7 @@ model Box {
   id          String  @id @default(cuid())
   labelNumber String
   qrCode      String?
+  icon        String?
   userId      String
   roomId      String
   boxSizeId   String
