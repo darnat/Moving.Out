@@ -258,6 +258,9 @@ export function BoxesClient({ boxes }: { boxes: BoxWithRelations[] }) {
                       : "color-mix(in srgb, var(--color-freight) 35%, transparent)",
                   }}
                 />
+                {box.icon && (
+                  <span style={{ fontSize: 20, lineHeight: 1, flexShrink: 0 }}>{box.icon}</span>
+                )}
                 <span className="label-number font-medium text-sm flex-1" style={{ color: "var(--color-ink)" }}>
                   {box.labelNumber}
                 </span>
