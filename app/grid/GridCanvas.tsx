@@ -199,6 +199,7 @@ function BoxMesh3D({ box, isSelected, onClick, onPointerDown, inPlaceMode, opaci
   const col = c ?? 0; const row = r ?? 0;
   const wc  = bwc(boxSize); const dc = bdc(boxSize); const hc = bhc(boxSize);
   const z0  = (sl ?? 1) - 1;
+  const edgeGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(wc, hc, dc)), [wc, hc, dc]);
 
   return (
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
@@ -215,6 +216,9 @@ function BoxMesh3D({ box, isSelected, onClick, onPointerDown, inPlaceMode, opaci
           opacity={opacity}
         />
       </mesh>
+      <lineSegments geometry={edgeGeo} renderOrder={2}>
+        <lineBasicMaterial color="#62461A" transparent opacity={opacity * 0.55} />
+      </lineSegments>
       {opacity > 0.3 && (
         <Text
           position={[0, hc / 2 + 0.01, 0]}
@@ -248,6 +252,8 @@ function FurnitureMesh3D({ item, isSelected, onClick, onPointerDown, inPlaceMode
   const col3 = isSelected ? shade(base, 1.28) : base;
   const r    = Math.max(0.005, Math.min((item.borderRadius / 100) * Math.min(wc, hc, dc) * 0.35, 0.15));
   const label = (item.groupName ?? item.name).slice(0, 9);
+  const edgeGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(wc, hc, dc)), [wc, hc, dc]);
+  const edgeColor = shade(base, 0.45);
 
   return (
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
@@ -266,6 +272,9 @@ function FurnitureMesh3D({ item, isSelected, onClick, onPointerDown, inPlaceMode
           opacity={opacity}
         />
       </RoundedBox>
+      <lineSegments geometry={edgeGeo} renderOrder={2}>
+        <lineBasicMaterial color={edgeColor} transparent opacity={opacity * 0.5} />
+      </lineSegments>
       {opacity > 0.3 && (
         <Text
           position={[0, hc / 2 + 0.01, 0]}
