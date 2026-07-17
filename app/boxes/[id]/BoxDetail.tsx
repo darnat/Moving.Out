@@ -21,7 +21,7 @@ function Spinner() {
   );
 }
 
-export function BoxDetail({ box, rooms }: { box: BoxWithRelations; rooms: Room[] }) {
+export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; rooms: Room[]; photoUrls: Record<string, string> }) {
   const router = useRouter();
   const [itemInput, setItemInput] = useState("");
   const [loading, setLoading] = useState<string | null>(null); // which action is in-flight
@@ -259,7 +259,7 @@ export function BoxDetail({ box, rooms }: { box: BoxWithRelations; rooms: Room[]
             {box.photos.map((photo) => (
               <div key={photo.id} className="relative group aspect-square">
                 <img
-                  src={`/api/photos/${photo.id}`}
+                  src={photoUrls[photo.id]}
                   alt=""
                   className="w-full h-full object-cover rounded-xl"
                   style={{ border: "1px solid var(--color-kraft)" }}
