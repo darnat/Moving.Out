@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useTransition, useOptimistic } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect, useTransition } from "react";
 import { Box, BoxSize, Room, FurnitureItem } from "@/app/generated/prisma/client";
 import { placeBox, unplaceBox } from "@/lib/actions/grid";
 import { setRetrieved } from "@/lib/actions/boxes";
@@ -113,7 +112,6 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
   furnitureItems: FurnitureItem[];
   widthCells: number; depthCells: number; heightCells: number;
 }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const [selectedBox,       setSelectedBox]       = useState<BoxWithRelations | null>(null);
@@ -126,25 +124,21 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
   const [suggestion,        setSuggestion]        = useState<{ level: number; onBox: string } | null>(null);
   const [isDragging,        setIsDragging]        = useState(false);
 
+  /* Local state persists placements without needing router.refresh() */
+  const [localBoxes,      setLocalBoxes]      = useState(boxes);
+  const [localFurniture,  setLocalFurniture]  = useState(furnitureItems);
+
   /* Ref to floor-raycast function exposed by the 3D canvas */
   const raycastRef = useRef<((cx: number, cy: number) => { col: number; row: number } | null) | null>(null);
 
-  const [optimisticBoxes, applyOptimisticBox] = useOptimistic(
-    boxes,
-    (current: BoxWithRelations[], patch: { id: string; gridCol: number; gridRow: number; stackLevel: number }) =>
-      current.map(b => b.id === patch.id ? { ...b, ...patch } : b)
-  );
+  /* Sync if server re-renders the parent (navigation, hard refresh) */
+  useEffect(() => { setLocalBoxes(boxes); },         [boxes]);
+  useEffect(() => { setLocalFurniture(furnitureItems); }, [furnitureItems]);
 
-  const [optimisticFurniture, applyOptimisticFurniture] = useOptimistic(
-    furnitureItems,
-    (current: FurnitureItem[], patch: { id: string; gridCol: number; gridRow: number; stackLevel: number }) =>
-      current.map(f => f.id === patch.id ? { ...f, ...patch } : f)
-  );
-
-  const placedBoxes       = optimisticBoxes.filter(b => b.gridCol !== null);
-  const unplacedBoxes     = optimisticBoxes.filter(b => b.gridCol === null);
-  const placedFurniture   = optimisticFurniture.filter(f => f.gridCol !== null);
-  const unplacedFurniture = optimisticFurniture.filter(f => f.gridCol === null);
+  const placedBoxes       = localBoxes.filter(b => b.gridCol !== null);
+  const unplacedBoxes     = localBoxes.filter(b => b.gridCol === null);
+  const placedFurniture   = localFurniture.filter(f => f.gridCol !== null);
+  const unplacedFurniture = localFurniture.filter(f => f.gridCol === null);
 
   const isMoving          = mode === "place" && !!selectedBox       && selectedBox.gridCol !== null;
   const isMovingFurniture = mode === "place" && !!selectedFurniture && selectedFurniture.gridCol !== null;
@@ -163,24 +157,33 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
 
   /* ── Placement commits ── */
   function commitBoxPlacement(boxId: string, col: number, row: number, level: number) {
+    /* Update local state immediately — no router.refresh() needed */
+    setLocalBoxes(prev => prev.map(b => b.id === boxId ? { ...b, gridCol: col, gridRow: row, stackLevel: level } : b));
+    setIsDragging(false);
+    setSelectedBox(null); setMode("view"); setHoverCell(null); setSuggestion(null);
     startTransition(async () => {
-      applyOptimisticBox({ id: boxId, gridCol: col, gridRow: row, stackLevel: level });
-      setIsDragging(false);
-      setSelectedBox(null); setMode("view"); setHoverCell(null); setSuggestion(null);
       const result = await placeBox(boxId, col, row, level);
-      if (result.error) { setError(result.error); return; }
-      setError(""); router.refresh();
+      if (result.error) {
+        setError(result.error);
+        setLocalBoxes(boxes); // revert on server error
+      } else {
+        setError("");
+      }
     });
   }
 
   function commitFurniturePlacement(itemId: string, col: number, row: number, level: number) {
+    setLocalFurniture(prev => prev.map(f => f.id === itemId ? { ...f, gridCol: col, gridRow: row, stackLevel: level } : f));
+    setIsDragging(false);
+    setSelectedFurniture(null); setMode("view"); setHoverCell(null); setSuggestion(null);
     startTransition(async () => {
-      applyOptimisticFurniture({ id: itemId, gridCol: col, gridRow: row, stackLevel: level });
-      setIsDragging(false);
-      setSelectedFurniture(null); setMode("view"); setHoverCell(null); setSuggestion(null);
       const result = await placeFurnitureItem(itemId, col, row, level);
-      if (result.error) { setError(result.error); return; }
-      setError(""); router.refresh();
+      if (result.error) {
+        setError(result.error);
+        setLocalFurniture(furnitureItems); // revert on server error
+      } else {
+        setError("");
+      }
     });
   }
 
@@ -286,23 +289,30 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
   }
   async function handleUnplaceBox() {
     if (!infoBox || isPending) return;
+    const id = infoBox.id;
+    setLocalBoxes(prev => prev.map(b => b.id === id ? { ...b, gridCol: null, gridRow: null, stackLevel: null } : b));
+    setInfoBox(null);
     startTransition(async () => {
-      const result = await unplaceBox(infoBox.id);
-      if (result.error) { setError(result.error); return; }
-      setInfoBox(null); router.refresh();
+      const result = await unplaceBox(id);
+      if (result.error) { setError(result.error); setLocalBoxes(boxes); }
     });
   }
   async function handleUnplaceFurniture() {
     if (!infoFurniture || isPending) return;
+    const id = infoFurniture.id;
+    setLocalFurniture(prev => prev.map(f => f.id === id ? { ...f, gridCol: null, gridRow: null, stackLevel: null } : f));
+    setInfoFurniture(null);
     startTransition(async () => {
-      const result = await unplaceFurnitureItem(infoFurniture.id);
-      if (result.error) { setError(result.error); return; }
-      setInfoFurniture(null); router.refresh();
+      const result = await unplaceFurnitureItem(id);
+      if (result.error) { setError(result.error); setLocalFurniture(furnitureItems); }
     });
   }
   async function handleRetrieve() {
     if (!infoBox || isPending) return;
-    startTransition(async () => { await setRetrieved(infoBox.id, true); setInfoBox(null); router.refresh(); });
+    const id = infoBox.id;
+    setLocalBoxes(prev => prev.filter(b => b.id !== id));
+    setInfoBox(null);
+    startTransition(async () => { await setRetrieved(id, true); });
   }
 
   return (
