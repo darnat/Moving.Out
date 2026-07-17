@@ -82,7 +82,11 @@ export interface GridCanvas3DProps {
   onUnplaceFurniture: () => void;
 }
 
-/* ── Isometric camera — applies zoom and persists pan offset across re-renders ── */
+/* ── Isometric camera — position/lookAt and zoom are intentionally split ──
+   Position effect: runs only on scene-dimension changes; never resets when the
+   info panel appears or infoBox state changes (which would cause a blink).
+   Zoom effect: runs when canvas size or zoomFactor changes; touches only zoom,
+   so no position jump occurs from a layout shift.                            ── */
 function IsometricCamera({
   wc, dc, hc, zoomFactor, panRef,
 }: {
@@ -90,6 +94,8 @@ function IsometricCamera({
   panRef: React.MutableRefObject<{ x: number; z: number }>;
 }) {
   const { camera, size } = useThree();
+
+  /* Position + lookAt — only re-runs when the storage unit dimensions change */
   useEffect(() => {
     const pan = panRef.current;
     const D = Math.max(wc + dc, hc + 4) * 12;
@@ -97,6 +103,10 @@ function IsometricCamera({
     camera.lookAt(wc / 2 + pan.x, hc / 2, dc / 2 + pan.z);
     camera.up.set(0, 1, 0);
     camera.updateMatrixWorld();
+  }, [camera, wc, dc, hc]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Zoom only — does NOT touch position or lookAt */
+  useEffect(() => {
     const worldW = (wc + dc) / Math.SQRT2;
     const worldH = (wc + dc + 2 * hc) / Math.sqrt(6);
     (camera as THREE.OrthographicCamera).zoom = Math.max(
@@ -104,7 +114,8 @@ function IsometricCamera({
       1,
     ) * zoomFactor;
     camera.updateProjectionMatrix();
-  }, [camera, size, wc, dc, hc, zoomFactor, panRef]);
+  }, [camera, size, wc, dc, hc, zoomFactor]);
+
   return null;
 }
 
@@ -124,25 +135,36 @@ function PanController({
 
   useEffect(() => {
     const canvas = gl.domElement;
-    let active = false;
-    let moved  = false;
-    let lastX  = 0;
-    let lastY  = 0;
+    /* Track the single pointer we're panning with. A second pointer arriving
+       (start of a pinch-to-zoom) immediately cancels the pan so the initial
+       pinch movement doesn't also pan the camera. */
+    let primaryId: number | null = null;
+    let moved = false;
+    let lastX = 0;
+    let lastY = 0;
 
     function onDown(e: PointerEvent) {
+      if (primaryId !== null) {
+        /* Second finger arrived — abort any in-progress pan */
+        primaryId = null;
+        return;
+      }
       if (!enabledRef.current) return;
-      active = true; moved = false;
-      lastX = e.clientX; lastY = e.clientY;
+      primaryId = e.pointerId;
+      moved = false;
+      lastX = e.clientX;
+      lastY = e.clientY;
     }
 
     function onMove(e: PointerEvent) {
-      if (!active || !enabledRef.current) return;
+      if (primaryId === null || e.pointerId !== primaryId || !enabledRef.current) return;
       const dx = e.clientX - lastX;
       const dy = e.clientY - lastY;
       if (!moved && Math.hypot(dx, dy) < 4) return;
-      if (!moved) didPanRef.current = true; // mark pan started
+      if (!moved) didPanRef.current = true;
       moved = true;
-      lastX = e.clientX; lastY = e.clientY;
+      lastX = e.clientX;
+      lastY = e.clientY;
 
       const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
       const up    = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
@@ -159,10 +181,11 @@ function PanController({
       panRef.current.z += delta.z;
     }
 
-    function onUp() {
-      active = false;
-      /* Reset after a tick — onClick fires just after pointerup and must still see true */
-      setTimeout(() => { didPanRef.current = false; }, 50);
+    function onUp(e: PointerEvent) {
+      if (e.pointerId === primaryId) {
+        primaryId = null;
+        setTimeout(() => { didPanRef.current = false; }, 50);
+      }
     }
 
     canvas.addEventListener("pointerdown", onDown);
