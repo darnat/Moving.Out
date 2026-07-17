@@ -70,7 +70,10 @@ export function PhotoGallery({
           alignItems: "center",
           justifyContent: "center",
           gap: 12,
-          padding: "52px 16px 48px",
+          paddingTop: "max(64px, calc(env(safe-area-inset-top) + 16px))",
+          paddingBottom: "max(56px, calc(env(safe-area-inset-bottom) + 16px))",
+          paddingLeft: 16,
+          paddingRight: 16,
         }}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => setTouchStartX(e.touches[0].clientX)}
@@ -106,7 +109,7 @@ export function PhotoGallery({
         <div
           style={{
             position: "absolute",
-            bottom: 18,
+            bottom: "max(18px, env(safe-area-inset-bottom))",
             left: "50%",
             transform: "translateX(-50%)",
             color: "rgba(255,255,255,0.55)",
@@ -122,15 +125,15 @@ export function PhotoGallery({
         onClick={onClose}
         style={{
           position: "absolute",
-          top: 16,
+          top: "max(16px, env(safe-area-inset-top))",
           right: 16,
-          width: 36,
-          height: 36,
-          borderRadius: 18,
+          width: 44,
+          height: 44,
+          borderRadius: 22,
           background: "rgba(255,255,255,0.12)",
           border: "1px solid rgba(255,255,255,0.18)",
           color: "#fff",
-          fontSize: 18,
+          fontSize: 20,
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
