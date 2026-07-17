@@ -362,8 +362,10 @@ function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1, roomCol
   const z0  = (sl ?? 1) - 1;
   const edgeGeo    = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(wc, hc, dc)), [wc, hc, dc]);
   const baseColor  = isSelected ? "#FFD060" : roomColor;
-  const emojiTex   = useEmojiTexture(box.icon ?? null);
-  const iconSize   = Math.min(wc, dc) * 0.68;
+  const emojiTex  = useEmojiTexture(box.icon ?? null);
+  /* Emoji sits on the +Z face (front face, most visible in isometric view).
+     Size is capped to fit within the face height. */
+  const iconSize  = Math.min(wc * 0.75, hc * 0.82);
 
   return (
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
@@ -376,24 +378,28 @@ function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1, roomCol
       <lineSegments geometry={edgeGeo} renderOrder={2}>
         <lineBasicMaterial color={shade(roomColor, 0.42)} transparent opacity={opacity * 0.55} />
       </lineSegments>
-      {opacity > 0.3 && emojiTex && (
-        <mesh position={[0, hc / 2 + 0.003, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
-          <planeGeometry args={[iconSize, iconSize]} />
-          <meshBasicMaterial map={emojiTex} transparent depthWrite={false} opacity={opacity} />
-        </mesh>
-      )}
-      {opacity > 0.3 && !emojiTex && (
+
+      {/* Label always on top face */}
+      {opacity > 0.3 && (
         <Text
           position={[0, hc / 2 + 0.01, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
-          fontSize={Math.max(0.07, Math.min(wc, dc) * 0.22)}
+          fontSize={Math.max(0.06, Math.min(wc, dc) * 0.2)}
           color="#3A2008"
           anchorX="center"
           anchorY="middle"
-          maxWidth={Math.min(wc, dc) * 0.82}
+          maxWidth={Math.min(wc, dc) * 0.85}
         >
           {labelNumber}
         </Text>
+      )}
+
+      {/* Emoji on front face (+Z side, most visible in isometric view) */}
+      {opacity > 0.3 && emojiTex && (
+        <mesh position={[0, 0, dc / 2 + 0.003]} renderOrder={3}>
+          <planeGeometry args={[iconSize, iconSize]} />
+          <meshBasicMaterial map={emojiTex} transparent depthWrite={false} opacity={opacity} />
+        </mesh>
       )}
     </group>
   );

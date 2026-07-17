@@ -10,31 +10,86 @@ import { compressImage } from "@/lib/imageCompress";
 import { PhotoGallery } from "@/app/components/PhotoGallery";
 import { haptic } from "@/lib/haptic";
 
-const PICTOS = [
-  // Clothing & Accessories
-  "👕","👔","👗","🧥","🧣","🧤","👟","👠","👞","👒","🧢","👜","🎒",
-  // Kitchen & Dining
-  "🍳","🥘","🍽️","☕","🥂","🍷","🫙","🔪","🧊",
-  // Books & Office
-  "📚","📖","📝","📁","💼","🖊️","🖨️",
-  // Electronics
-  "💻","🖥️","📱","🎮","📷","🎧","📺","🔌","🖱️",
-  // Bedroom & Home
-  "🛏️","🪞","🛋️","🪑","🕯️","🧸","🪆","🖼️","🪟",
-  // Bathroom & Health
-  "🛁","🧴","💊","🪥","🧼","🪒",
-  // Sports & Toys
-  "⚽","🏋️","🎿","🎾","🧩","🎲","🏓","🎪",
-  // Tools & Hardware
-  "🔧","🔨","🪚","🔩","🪛","🔦","🧰",
-  // Art & Music
-  "🎨","🎵","🎹","🎸","🎺","📸",
-  // Plants & Garden
-  "🪴","🌱","🌸","🌿","🪺",
-  // Food & Pantry
-  "🥫","🧃","🫒","🧈","🥚",
-  // Other
-  "📦","🎁","🏺","🪬","✨","🗺️",
+const PICTOS: { e: string; k: string }[] = [
+  { e: "📚", k: "books read library study school" },
+  { e: "📖", k: "book reading novel" },
+  { e: "📝", k: "notes writing documents papers" },
+  { e: "📁", k: "files folders documents office" },
+  { e: "💼", k: "briefcase office work documents" },
+  { e: "👕", k: "shirt clothes clothing tshirt tops" },
+  { e: "👔", k: "shirt dress clothes formal" },
+  { e: "👗", k: "dress clothes clothing women" },
+  { e: "🧥", k: "coat jacket clothes winter" },
+  { e: "🧣", k: "scarf clothes winter accessories" },
+  { e: "🧤", k: "gloves clothes winter accessories" },
+  { e: "👟", k: "shoes sneakers footwear sport" },
+  { e: "👠", k: "shoes heels footwear women" },
+  { e: "👞", k: "shoes dress footwear formal" },
+  { e: "👒", k: "hat accessories clothes" },
+  { e: "🧢", k: "cap hat accessories" },
+  { e: "👜", k: "bag purse accessories women" },
+  { e: "🎒", k: "backpack bag school travel" },
+  { e: "🍳", k: "kitchen cooking pan pots" },
+  { e: "🥘", k: "kitchen cooking pot food" },
+  { e: "🍽️", k: "dishes plates cutlery dining" },
+  { e: "☕", k: "coffee mug kitchen cups" },
+  { e: "🥂", k: "glasses wine champagne fragile" },
+  { e: "🍷", k: "wine glasses alcohol fragile" },
+  { e: "🫙", k: "jars pantry food kitchen" },
+  { e: "🔪", k: "knife knives kitchen utensils" },
+  { e: "🧊", k: "ice freezer cold kitchen" },
+  { e: "💻", k: "laptop computer electronics work" },
+  { e: "🖥️", k: "desktop computer monitor electronics" },
+  { e: "📱", k: "phone mobile electronics" },
+  { e: "🎮", k: "games gaming console toys" },
+  { e: "📷", k: "camera photos photography electronics" },
+  { e: "🎧", k: "headphones audio music electronics" },
+  { e: "📺", k: "tv television screen electronics" },
+  { e: "🔌", k: "cables chargers electronics wires" },
+  { e: "🖱️", k: "mouse computer electronics" },
+  { e: "🛏️", k: "bed bedroom bedding linen" },
+  { e: "🪞", k: "mirror bedroom bathroom" },
+  { e: "🛋️", k: "sofa couch living room furniture" },
+  { e: "🪑", k: "chair furniture" },
+  { e: "🕯️", k: "candles decoration home" },
+  { e: "🧸", k: "teddy bear toys kids" },
+  { e: "🪆", k: "toys decoration" },
+  { e: "🖼️", k: "art pictures frames decoration" },
+  { e: "🪟", k: "curtains blinds bedroom" },
+  { e: "🛁", k: "bath bathroom toiletries" },
+  { e: "🧴", k: "toiletries shampoo bathroom beauty" },
+  { e: "💊", k: "medicine pharmacy health" },
+  { e: "🪥", k: "toothbrush bathroom toiletries" },
+  { e: "🧼", k: "soap bathroom cleaning" },
+  { e: "🪒", k: "razor shaving bathroom" },
+  { e: "⚽", k: "sports football soccer" },
+  { e: "🏋️", k: "gym weights sports fitness" },
+  { e: "🎿", k: "ski winter sports" },
+  { e: "🎾", k: "tennis sports" },
+  { e: "🧩", k: "puzzle toys games" },
+  { e: "🎲", k: "board games toys" },
+  { e: "🏓", k: "ping pong sports toys" },
+  { e: "🔧", k: "tools wrench hardware fix" },
+  { e: "🔨", k: "hammer tools hardware" },
+  { e: "🪚", k: "saw tools hardware" },
+  { e: "🔩", k: "screws bolts tools hardware" },
+  { e: "🔦", k: "flashlight torch tools" },
+  { e: "🧰", k: "toolbox tools hardware" },
+  { e: "🎨", k: "art painting craft supplies" },
+  { e: "🎵", k: "music cds records" },
+  { e: "🎹", k: "piano keyboard music instrument" },
+  { e: "🎸", k: "guitar music instrument" },
+  { e: "📸", k: "camera photos pictures albums" },
+  { e: "🪴", k: "plant garden indoor" },
+  { e: "🌱", k: "plant garden seeds" },
+  { e: "🌸", k: "flowers decoration garden" },
+  { e: "🥫", k: "cans food pantry" },
+  { e: "🧃", k: "drinks beverages food" },
+  { e: "📦", k: "misc general other stuff" },
+  { e: "🎁", k: "gifts presents holiday" },
+  { e: "🏺", k: "vases decoration fragile" },
+  { e: "✨", k: "decoration holiday christmas" },
+  { e: "🗺️", k: "maps travel" },
 ];
 
 type BoxWithRelations = Box & {
@@ -60,6 +115,7 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState(box.labelNumber);
   const [icon, setIcon] = useState<string | null>(box.icon ?? null);
+  const [showPictoSheet, setShowPictoSheet] = useState(false);
   const [editingRoom, setEditingRoom] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [gallery, setGallery] = useState<{ index: number } | null>(null);
@@ -294,51 +350,39 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
       </div>
 
       {/* Picto */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>
-            Picto {loading === "icon" && <Spinner />}
-          </h2>
-          {icon && (
-            <button
-              type="button"
-              onClick={() => handleIconChange(null)}
-              disabled={busy}
-              className="text-xs"
-              style={{ color: "var(--color-pencil)" }}
-            >
-              Remove
-            </button>
+      <div className="space-y-2">
+        <h2 className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>
+          Picto {loading === "icon" && <Spinner />}
+        </h2>
+        <button
+          type="button"
+          onClick={() => setShowPictoSheet(true)}
+          disabled={busy}
+          className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-colors"
+          style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: icon ? "var(--color-ink)" : "var(--color-pencil)" }}
+        >
+          {icon ? (
+            <>
+              <span style={{ fontSize: 28, lineHeight: 1 }}>{icon}</span>
+              <span className="flex-1 text-left">{PICTOS.find(p => p.e === icon)?.k.split(" ")[0] ?? icon}</span>
+              <span style={{ color: "var(--color-pencil)" }}>Change</span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: 24, opacity: 0.4 }}>🏷️</span>
+              <span className="flex-1 text-left">Add a picto…</span>
+            </>
           )}
-        </div>
-
-        {icon && (
-          <div
-            className="flex items-center justify-center rounded-2xl py-3"
-            style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", fontSize: 48 }}
-          >
-            {icon}
-          </div>
-        )}
-
-        <div className="grid grid-cols-8 gap-1.5">
-          {PICTOS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => handleIconChange(p)}
-              disabled={busy}
-              className="flex items-center justify-center rounded-xl aspect-square text-2xl transition-transform active:scale-90"
-              style={{
-                background: icon === p ? "var(--color-freight-tint)" : "var(--color-surface)",
-                border: `1px solid ${icon === p ? "rgba(255,107,43,0.4)" : "var(--color-kraft)"}`,
-              }}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
+        </button>
       </div>
+
+      {showPictoSheet && (
+        <PictoSheet
+          current={icon}
+          onSelect={(e) => { handleIconChange(e); setShowPictoSheet(false); }}
+          onClose={() => setShowPictoSheet(false)}
+        />
+      )}
 
       {/* Items */}
       <div className="space-y-3">
@@ -497,6 +541,97 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
           {loading === "delete" ? <Spinner /> : null}
           Delete
         </button>
+      </div>
+    </div>
+  );
+}
+
+function PictoSheet({
+  current,
+  onSelect,
+  onClose,
+}: {
+  current: string | null;
+  onSelect: (emoji: string | null) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+
+  const filtered = query.trim()
+    ? PICTOS.filter((p) => p.k.includes(query.toLowerCase()) || p.e === query)
+    : PICTOS;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col justify-end"
+      style={{ background: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-t-3xl space-y-4"
+        style={{
+          background: "rgb(18 18 20)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          padding: "20px 20px",
+          paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))",
+          maxHeight: "70vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 rounded-full mx-auto shrink-0" style={{ background: "rgba(255,255,255,0.2)" }} />
+
+        {/* Search */}
+        <div className="relative shrink-0">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: "rgba(255,255,255,0.4)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search: books, clothes, kitchen…"
+            className="w-full rounded-2xl py-3 pl-9 pr-4 text-sm"
+            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }}
+          />
+        </div>
+
+        {/* Grid */}
+        <div className="overflow-y-auto flex-1">
+          {filtered.length === 0 ? (
+            <p className="text-center py-8 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>No match — try a different word</p>
+          ) : (
+            <div className="grid grid-cols-7 gap-2">
+              {filtered.map((p) => (
+                <button
+                  key={p.e}
+                  type="button"
+                  onClick={() => onSelect(p.e)}
+                  className="flex items-center justify-center rounded-xl aspect-square text-3xl transition-transform active:scale-90"
+                  style={{
+                    background: current === p.e ? "rgba(255,107,43,0.25)" : "rgba(255,255,255,0.06)",
+                    border: `1px solid ${current === p.e ? "rgba(255,107,43,0.5)" : "rgba(255,255,255,0.1)"}`,
+                  }}
+                >
+                  {p.e}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Remove */}
+        {current && (
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            className="w-full py-3 text-sm shrink-0"
+            style={{ color: "rgba(255,255,255,0.5)" }}
+          >
+            Remove picto
+          </button>
+        )}
       </div>
     </div>
   );
