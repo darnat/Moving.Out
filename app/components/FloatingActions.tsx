@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { QrScanner } from "./QrScanner";
 import { findBoxByQrCode } from "@/lib/actions/boxes";
@@ -9,17 +9,24 @@ type ScanState = "idle" | "scanning" | "processing";
 
 export function FloatingActions() {
   const [state, setState] = useState<ScanState>("idle");
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  /* Clear the overlay only once the incoming page has finished rendering */
+  useEffect(() => {
+    if (!isPending && state === "processing") setState("idle");
+  }, [isPending, state]);
 
   const handleScan = useCallback(async (text: string) => {
     setState("processing");
     const boxId = await findBoxByQrCode(text);
-    if (boxId) {
-      router.push(`/boxes/${boxId}`);
-    } else {
-      router.push(`/boxes/new?qr=${encodeURIComponent(text)}`);
-    }
-    setState("idle");
+    startTransition(() => {
+      if (boxId) {
+        router.push(`/boxes/${boxId}`);
+      } else {
+        router.push(`/boxes/new?qr=${encodeURIComponent(text)}`);
+      }
+    });
   }, [router]);
 
   return (
