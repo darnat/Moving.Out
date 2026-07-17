@@ -5,31 +5,45 @@ import { useRouter } from "next/navigation";
 import { QrScanner } from "./QrScanner";
 import { findBoxByQrCode } from "@/lib/actions/boxes";
 
+type ScanState = "idle" | "scanning" | "processing";
+
 export function FloatingActions() {
-  const [showScanner, setShowScanner] = useState(false);
+  const [state, setState] = useState<ScanState>("idle");
   const router = useRouter();
 
   const handleScan = useCallback(async (text: string) => {
-    setShowScanner(false);
+    /* Switch to processing immediately — zero gap for the user */
+    setState("processing");
     const boxId = await findBoxByQrCode(text);
     if (boxId) {
       router.push(`/boxes/${boxId}`);
     } else {
       router.push(`/boxes/new?qr=${encodeURIComponent(text)}`);
     }
+    /* setState("idle") not needed — navigation unmounts this component */
   }, [router]);
 
   return (
     <>
-      {showScanner && (
-        <QrScanner onScan={handleScan} onClose={() => setShowScanner(false)} />
+      {state === "scanning" && (
+        <QrScanner onScan={handleScan} onClose={() => setState("idle")} />
       )}
 
-      <div
-        className="fixed right-4 z-50 lg:right-6 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px)+1rem)] lg:bottom-6"
-      >
+      {state === "processing" && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4"
+          style={{ background: "rgba(0,0,0,0.88)" }}
+        >
+          <div className="w-12 h-12 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+          <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+            Looking up box…
+          </p>
+        </div>
+      )}
+
+      <div className="fixed right-4 z-50 lg:right-6 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px)+1rem)] lg:bottom-6">
         <button
-          onClick={() => setShowScanner(true)}
+          onClick={() => setState("scanning")}
           aria-label="Scan QR code"
           className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-transform duration-200 active:scale-95"
           style={{
