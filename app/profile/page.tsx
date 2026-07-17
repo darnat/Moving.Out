@@ -63,25 +63,14 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        {/* Settings card */}
-        <div
-          className="rounded-3xl p-5 glass"
-          style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)" }}
-        >
-          <h2
-            className="font-display font-semibold text-base mb-5"
-            style={{ color: "var(--color-ink)" }}
-          >
-            Settings
-          </h2>
-          <SettingsClient
-            boxSizes={boxSizes}
-            rooms={rooms}
-            storageUnit={
-              storageUnit ?? { widthCells: 10, depthCells: 20, heightCells: 8, id: "", userId }
-            }
-          />
-        </div>
+        {/* Settings — each section is its own card (rendered by SettingsClient) */}
+        <SettingsClient
+          boxSizes={boxSizes}
+          rooms={rooms}
+          storageUnit={
+            storageUnit ?? { widthCells: 10, depthCells: 20, heightCells: 8, id: "", userId }
+          }
+        />
       </main>
     </div>
   );

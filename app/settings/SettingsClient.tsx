@@ -97,9 +97,12 @@ export function SettingsClient({
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-4">
       {/* Storage unit */}
-      <section>
+      <section
+        className="rounded-2xl p-4 glass"
+        style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)" }}
+      >
         <SectionHeader>Storage unit</SectionHeader>
         <form onSubmit={handleUpdateStorage} className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
@@ -137,7 +140,10 @@ export function SettingsClient({
       </section>
 
       {/* Box sizes */}
-      <section>
+      <section
+        className="rounded-2xl p-4 glass"
+        style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)" }}
+      >
         <SectionHeader>Box sizes</SectionHeader>
         <ul className="mb-3 rounded-xl overflow-hidden" style={{ border: "1px solid var(--color-kraft)" }}>
           {boxSizes.map((bs, i) => (
@@ -212,7 +218,10 @@ export function SettingsClient({
       </section>
 
       {/* Rooms */}
-      <section>
+      <section
+        className="rounded-2xl p-4 glass"
+        style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)" }}
+      >
         <SectionHeader>Rooms</SectionHeader>
         <ul className="mb-3 rounded-xl overflow-hidden" style={{ border: "1px solid var(--color-kraft)" }}>
           {rooms.map((room, i) => (
