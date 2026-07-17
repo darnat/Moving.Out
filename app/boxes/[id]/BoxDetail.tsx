@@ -168,11 +168,16 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
   }
 
   async function handleIconChange(newIcon: string | null) {
+    const prev = icon;
     setIcon(newIcon);
-    await run("icon", async () => {
-      await updateBoxIcon(box.id, newIcon);
-      router.refresh();
-    });
+    try {
+      await run("icon", async () => {
+        await updateBoxIcon(box.id, newIcon);
+        router.refresh();
+      });
+    } catch {
+      setIcon(prev);
+    }
   }
 
   async function handleRoomChange(roomId: string) {
@@ -379,7 +384,7 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
       {showPictoSheet && (
         <PictoSheet
           current={icon}
-          onSelect={(e) => { handleIconChange(e); setShowPictoSheet(false); }}
+          onSelect={async (e) => { setShowPictoSheet(false); await handleIconChange(e); }}
           onClose={() => setShowPictoSheet(false)}
         />
       )}
