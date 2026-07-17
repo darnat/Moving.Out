@@ -125,6 +125,7 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
   const [suggestion,        setSuggestion]        = useState<{ level: number; onBox: string } | null>(null);
   const [isDragging,        setIsDragging]        = useState(false);
   const [zoomFactor,        setZoomFactor]        = useState(1.0);
+  const [highlightBox,      setHighlightBox]      = useState<BoxWithRelations | null>(null);
 
   const [localBoxes,      setLocalBoxes]      = useState(boxes);
   const [localFurniture,  setLocalFurniture]  = useState(furnitureItems);
@@ -135,11 +136,18 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
   useEffect(() => { setLocalBoxes(boxes); },         [boxes]);
   useEffect(() => { setLocalFurniture(furnitureItems); }, [furnitureItems]);
 
-  /* Auto-focus box from URL param */
+  /* Auto-focus + zoom + pulse-highlight box from URL param */
   useEffect(() => {
     if (!focusBoxId) return;
     const box = boxes.find((b) => b.id === focusBoxId);
-    if (box) setInfoBox(box);
+    if (!box) return;
+    setInfoBox(box);
+    if (box.gridCol !== null) {
+      setZoomFactor(2.0);
+      setHighlightBox(box);
+      const t = setTimeout(() => setHighlightBox(null), 3000);
+      return () => clearTimeout(t);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Room index: stable sorted order → palette index */
@@ -388,6 +396,7 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
           isMovingFurniture={isMovingFurniture}
           zoomFactor={zoomFactor}
           roomIndex={roomIndex}
+          highlightBox={highlightBox}
           raycastRef={raycastRef}
           onSelectBox={(b) => { setInfoBox(b); setInfoFurniture(null); }}
           onSelectFurniture={(f) => { setInfoFurniture(f); setInfoBox(null); }}

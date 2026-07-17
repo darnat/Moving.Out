@@ -49,6 +49,8 @@ export function QrScanner({
               stopped = true;
               clearInterval(intervalId);
               stream?.getTracks().forEach((t) => t.stop());
+              const { haptic } = await import("@/lib/haptic");
+              haptic("success");
               onScan(results[0].text);
             }
           } finally {

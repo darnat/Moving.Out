@@ -37,6 +37,25 @@ export async function findBoxByQrCode(qrCode: string) {
   return box?.id ?? null;
 }
 
+export async function findBoxSummaryByQrCode(qrCode: string) {
+  const userId = await requireUserId();
+  const box = await prisma.box.findFirst({
+    where: { qrCode, userId },
+    include: { room: true, items: { take: 5 } },
+  });
+  if (!box) return null;
+  return {
+    id: box.id,
+    labelNumber: box.labelNumber,
+    retrieved: box.retrieved,
+    room: { name: box.room.name },
+    items: box.items.map((i) => i.name),
+    gridCol: box.gridCol,
+    gridRow: box.gridRow,
+    stackLevel: box.stackLevel,
+  };
+}
+
 export async function addItem(boxId: string, name: string) {
   const userId = await requireUserId();
   const box = await prisma.box.findFirst({ where: { id: boxId, userId } });

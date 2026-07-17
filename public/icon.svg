@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#060608"/>
+  <g transform="translate(256,256)" fill="none" stroke="#FF6B2B" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Box outline -->
+    <path d="M-120,-60 L0,-130 L120,-60 L120,80 L0,150 L-120,80 Z"/>
+    <!-- Top fold line -->
+    <path d="M-120,-60 L0,-10 L120,-60"/>
+    <!-- Center post -->
+    <line x1="0" y1="-10" x2="0" y2="150"/>
+  </g>
+</svg>

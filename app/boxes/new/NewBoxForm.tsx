@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Room, BoxSize } from "@/app/generated/prisma/client";
 import { createBox, addPhoto } from "@/lib/actions/boxes";
 import { QrScanner } from "@/app/components/QrScanner";
+import { haptic } from "@/lib/haptic";
 
 type PhotoEntry = { file: File; preview: string };
 
@@ -114,6 +115,7 @@ export function NewBoxForm({
         if (failures > 0) setFailedPhotos(failures);
       }
 
+      haptic("success");
       if (andAddAnother) {
         setSavedCount((n) => n + 1);
         resetForm();

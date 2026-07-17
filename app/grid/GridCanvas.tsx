@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useMemo, useEffect } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { Text, Html, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 import type { Box, BoxSize, Room, FurnitureItem } from "@/app/generated/prisma/client";
@@ -39,6 +39,29 @@ function getRoomColor(roomId: string, roomIndex: Map<string, number>): string {
 }
 
 /* ── Props type ── */
+/* ── Pulsing highlight ring for the focused box ── */
+function FocusPulse({ box }: { box: BoxWithRelations }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const wc = bwc(box.boxSize); const dc = bdc(box.boxSize); const hc = bhc(box.boxSize);
+  const z0 = (box.stackLevel ?? 1) - 1;
+
+  useFrame(({ clock }) => {
+    if (!meshRef.current) return;
+    const t = clock.getElapsedTime() % 1.1;
+    const s = 1 + t * 0.22;
+    meshRef.current.scale.setScalar(s);
+    const mat = meshRef.current.material as THREE.MeshBasicMaterial;
+    mat.opacity = Math.max(0, 0.65 * (1 - t / 1.1));
+  });
+
+  return (
+    <mesh ref={meshRef} position={[box.gridCol! + wc / 2, z0 + hc / 2, box.gridRow! + dc / 2]}>
+      <boxGeometry args={[wc + 0.06, hc + 0.06, dc + 0.06]} />
+      <meshBasicMaterial color="#FF6B2B" transparent opacity={0.65} wireframe />
+    </mesh>
+  );
+}
+
 export interface GridCanvas3DProps {
   placedBoxes: BoxWithRelations[];
   placedFurniture: FurnitureItem[];
@@ -57,6 +80,7 @@ export interface GridCanvas3DProps {
   isMovingFurniture: boolean;
   zoomFactor: number;
   roomIndex: Map<string, number>;
+  highlightBox: BoxWithRelations | null;
   raycastRef: React.MutableRefObject<((cx: number, cy: number) => { col: number; row: number } | null) | null>;
   onSelectBox: (box: BoxWithRelations) => void;
   onSelectFurniture: (item: FurnitureItem) => void;
@@ -441,7 +465,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
     hoverCell, isDragging, effectiveLevel,
     infoBox, infoFurniture, mode,
     isMoving, isMovingFurniture,
-    zoomFactor, roomIndex,
+    zoomFactor, roomIndex, highlightBox,
     raycastRef,
     onSelectBox, onSelectFurniture,
     onFloorHover, onFloorLeave, onFloorClick,
@@ -567,6 +591,10 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
             dc={selectedFurniture.depthIn / 12}
             isFurniture={true}
           />
+        )}
+
+        {highlightBox && highlightBox.gridCol !== null && (
+          <FocusPulse box={highlightBox} />
         )}
 
         {infoBox && mode === "view" && infoBox.gridCol !== null && (

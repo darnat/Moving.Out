@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Box, Room, BoxSize, Item, Photo } from "@/app/generated/prisma/client";
 import { addItem, removeItem, deleteBox, setRetrieved, addPhoto, removePhoto, updateBoxRoom } from "@/lib/actions/boxes";
 import { PhotoGallery } from "@/app/components/PhotoGallery";
+import { haptic } from "@/lib/haptic";
 
 type BoxWithRelations = Box & {
   room: Room;
@@ -81,6 +82,7 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
     if (busy) return;
     await run("retrieve", async () => {
       await setRetrieved(box.id, !box.retrieved);
+      haptic("success");
       router.refresh();
     });
   }
