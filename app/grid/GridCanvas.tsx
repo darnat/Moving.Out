@@ -415,15 +415,15 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
 
   return (
     <div
-      className="flex-1 min-w-0 overflow-hidden rounded-2xl"
+      className="flex-1 min-w-0 overflow-hidden rounded-2xl glass"
       style={{ border: "1px solid var(--color-kraft)", height: "min(76vh, 660px)", minHeight: 380 }}
     >
       <Canvas
         orthographic
         camera={{ near: 0.1, far: 3000 }}
-        gl={{ antialias: true }}
+        gl={{ antialias: true, alpha: true }}
         style={{
-          background: "#F2EDE4",
+          background: "transparent",
           cursor: mode === "place" ? (isDragging ? "grabbing" : "crosshair") : "default",
         }}
         onPointerLeave={onFloorLeave}
