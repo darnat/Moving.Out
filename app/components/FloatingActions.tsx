@@ -12,7 +12,6 @@ export function FloatingActions() {
   const router = useRouter();
 
   const handleScan = useCallback(async (text: string) => {
-    /* Switch to processing immediately — zero gap for the user */
     setState("processing");
     const boxId = await findBoxByQrCode(text);
     if (boxId) {
@@ -20,7 +19,7 @@ export function FloatingActions() {
     } else {
       router.push(`/boxes/new?qr=${encodeURIComponent(text)}`);
     }
-    /* setState("idle") not needed — navigation unmounts this component */
+    setState("idle");
   }, [router]);
 
   return (
