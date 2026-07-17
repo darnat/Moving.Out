@@ -54,7 +54,7 @@ export function SearchSection({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             data-testid="search-input"
-            className="w-full rounded-2xl py-3 pl-10 pr-4 text-sm glass"
+            className="w-full rounded-2xl py-3 pl-9 pr-4 text-sm glass"
             style={{
               background: "var(--color-surface)",
               border: "1px solid var(--color-kraft)",

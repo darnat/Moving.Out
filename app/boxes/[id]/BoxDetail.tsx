@@ -55,6 +55,7 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
 
   async function handleDelete() {
     if (busy) return;
+    if (!confirm(`Delete box ${box.labelNumber}? This cannot be undone.`)) return;
     await run("delete", async () => {
       await deleteBox(box.id);
       router.push("/");

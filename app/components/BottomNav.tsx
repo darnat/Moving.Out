@@ -39,11 +39,11 @@ const tabs = [
     ),
   },
   {
-    href: "/profile",
-    label: "Profile",
+    href: "/settings",
+    label: "Settings",
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/>
       </svg>
     ),
   },
@@ -54,7 +54,7 @@ export function BottomNav() {
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/" || pathname.startsWith("/boxes");
-    if (href === "/profile") return pathname === "/profile" || pathname === "/settings";
+    if (href === "/settings") return pathname === "/settings" || pathname === "/profile";
     return pathname === href || pathname.startsWith(href + "/");
   }
 

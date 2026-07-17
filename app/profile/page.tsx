@@ -28,7 +28,7 @@ export default async function ProfilePage() {
   return (
     <div className="min-h-screen">
       <Nav active="profile" />
-      <main className="mx-auto max-w-lg px-4 py-8 space-y-8">
+      <main className="mx-auto max-w-lg px-4 py-8 space-y-6">
 
         {/* Profile card */}
         <div
@@ -63,14 +63,25 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        {/* Settings (folded in) */}
-        <SettingsClient
-          boxSizes={boxSizes}
-          rooms={rooms}
-          storageUnit={
-            storageUnit ?? { widthCells: 10, depthCells: 20, heightCells: 8, id: "", userId }
-          }
-        />
+        {/* Settings card */}
+        <div
+          className="rounded-3xl p-5 glass"
+          style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)" }}
+        >
+          <h2
+            className="font-display font-semibold text-base mb-5"
+            style={{ color: "var(--color-ink)" }}
+          >
+            Settings
+          </h2>
+          <SettingsClient
+            boxSizes={boxSizes}
+            rooms={rooms}
+            storageUnit={
+              storageUnit ?? { widthCells: 10, depthCells: 20, heightCells: 8, id: "", userId }
+            }
+          />
+        </div>
       </main>
     </div>
   );

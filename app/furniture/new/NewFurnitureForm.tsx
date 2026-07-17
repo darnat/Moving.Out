@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addFurnitureItem } from "@/lib/actions/furniture";
 
@@ -19,14 +19,17 @@ export function NewFurnitureForm() {
   const router = useRouter();
   const [color, setColor] = useState(PRESETS[0]);
   const [borderRadius, setBorderRadius] = useState(0);
+  const [isPending, startTransition] = useTransition();
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     fd.set("color", color);
     fd.set("borderRadius", String(borderRadius));
-    await addFurnitureItem(fd);
-    router.push("/furniture");
+    startTransition(async () => {
+      await addFurnitureItem(fd);
+      router.push("/furniture");
+    });
   }
 
   return (
@@ -156,10 +159,19 @@ export function NewFurnitureForm() {
         </button>
         <button
           type="submit"
-          className="flex-1 rounded-xl px-4 py-3 text-sm font-medium text-white"
+          disabled={isPending}
+          className="flex-1 rounded-xl px-4 py-3 text-sm font-medium text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
           style={{ background: "var(--color-freight)" }}
         >
-          Save
+          {isPending ? (
+            <>
+              <svg className="spin w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" opacity="0.9"/>
+                <path d="M12 2a10 10 0 0 0-10 10" strokeLinecap="round" opacity="0.3"/>
+              </svg>
+              Saving…
+            </>
+          ) : "Save"}
         </button>
       </div>
     </form>
