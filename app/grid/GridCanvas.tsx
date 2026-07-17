@@ -75,7 +75,7 @@ export interface GridCanvas3DProps {
   onSelectFurniture: (item: FurnitureItem) => void;
   onFloorHover: (col: number, row: number) => void;
   onFloorLeave: () => void;
-  onFloorClick: () => void;
+  onFloorClick: (x: number, z: number) => void;
   onDragBoxStart: (e: PointerEvent, box: BoxWithRelations) => void;
   onDragFurnitureStart: (e: PointerEvent, item: FurnitureItem) => void;
   onUnplaceBox: () => void;
@@ -296,7 +296,7 @@ function SceneWalls({ wc, dc, hc }: { wc: number; dc: number; hc: number }) {
 function FloorInteraction({ wc, dc, onMove, onClick }: {
   wc: number; dc: number;
   onMove: (col: number, row: number) => void;
-  onClick: () => void;
+  onClick: (x: number, z: number) => void;
 }) {
   const downPos  = useRef<{ x: number; y: number } | null>(null);
   const didPan   = useRef(false);
@@ -309,6 +309,7 @@ function FloorInteraction({ wc, dc, onMove, onClick }: {
         e.stopPropagation();
         downPos.current = { x: e.nativeEvent.clientX, y: e.nativeEvent.clientY };
         didPan.current = false;
+        onMove(e.point.x, e.point.z); // update hover immediately on touch/click
       }}
       onPointerMove={(e) => {
         e.stopPropagation();
@@ -320,7 +321,7 @@ function FloorInteraction({ wc, dc, onMove, onClick }: {
         if (!didPan.current) onMove(e.point.x, e.point.z);
       }}
       onPointerUp={() => { downPos.current = null; }}
-      onClick={(e) => { e.stopPropagation(); if (!didPan.current) onClick(); }}
+      onClick={(e) => { e.stopPropagation(); if (!didPan.current) onClick(e.point.x, e.point.z); }}
     >
       <planeGeometry args={[wc + 100, dc + 100]} />
       <meshBasicMaterial transparent opacity={0} />
@@ -485,19 +486,19 @@ function BoxOverlay({ box, onDragStart, onUnplace }: {
   const w = bwc(box.boxSize); const d = bdc(box.boxSize); const h = bhc(box.boxSize);
   const z0 = (box.stackLevel ?? 1) - 1;
   const btn: React.CSSProperties = {
-    width: 30, height: 28, borderRadius: 7, background: "white",
+    width: 44, height: 44, borderRadius: 10, background: "white",
     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-    fontFamily: "inherit",
+    fontFamily: "inherit", touchAction: "none", userSelect: "none",
   };
   return (
     <Html position={[col + w / 2, z0 + h + 0.3, row + d / 2]} center>
-      <div style={{ display: "flex", gap: 4, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.22))", pointerEvents: "auto" }}>
-        <button onPointerDown={(e) => onDragStart(e.nativeEvent, box)} style={{ ...btn, border: "1px solid #D0C8BA", cursor: "grab" }}>
+      <div style={{ display: "flex", gap: 6, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.22))", pointerEvents: "auto" }}>
+        <button onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onDragStart(e.nativeEvent, box); }} style={{ ...btn, border: "1px solid #D0C8BA", cursor: "grab" }}>
           <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="#62461A" strokeWidth={1.4} strokeLinecap="round">
             <path d="M7 0v14M0 7h14M7 0L5 2.5M7 0L9 2.5M7 14L5 11.5M7 14L9 11.5M0 7L2.5 5M0 7L2.5 9M14 7L11.5 5M14 7L11.5 9"/>
           </svg>
         </button>
-        <button onClick={onUnplace} style={{ ...btn, border: "1px solid #FFD0C0", fontSize: 17, color: "#E8562A", lineHeight: 1 }}>×</button>
+        <button onClick={onUnplace} style={{ ...btn, border: "1px solid #FFD0C0", fontSize: 20, color: "#E8562A", lineHeight: 1 }}>×</button>
       </div>
     </Html>
   );
@@ -512,19 +513,19 @@ function FurnitureOverlay({ item, onDragStart, onUnplace }: {
   const w = item.widthIn / 12; const d = item.depthIn / 12; const h = item.heightIn / 12;
   const z0 = (item.stackLevel ?? 1) - 1;
   const btn: React.CSSProperties = {
-    width: 30, height: 28, borderRadius: 7, background: "white",
+    width: 44, height: 44, borderRadius: 10, background: "white",
     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-    fontFamily: "inherit",
+    fontFamily: "inherit", touchAction: "none", userSelect: "none",
   };
   return (
     <Html position={[col + w / 2, z0 + h + 0.3, row + d / 2]} center>
-      <div style={{ display: "flex", gap: 4, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.22))", pointerEvents: "auto" }}>
-        <button onPointerDown={(e) => onDragStart(e.nativeEvent, item)} style={{ ...btn, border: "1px solid #C0CED8", cursor: "grab" }}>
+      <div style={{ display: "flex", gap: 6, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.22))", pointerEvents: "auto" }}>
+        <button onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onDragStart(e.nativeEvent, item); }} style={{ ...btn, border: "1px solid #C0CED8", cursor: "grab" }}>
           <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="#354D65" strokeWidth={1.4} strokeLinecap="round">
             <path d="M7 0v14M0 7h14M7 0L5 2.5M7 0L9 2.5M7 14L5 11.5M7 14L9 11.5M0 7L2.5 5M0 7L2.5 9M14 7L11.5 5M14 7L11.5 9"/>
           </svg>
         </button>
-        <button onClick={onUnplace} style={{ ...btn, border: "1px solid #C0CED8", fontSize: 17, color: "#5C7A96", lineHeight: 1 }}>×</button>
+        <button onClick={onUnplace} style={{ ...btn, border: "1px solid #C0CED8", fontSize: 20, color: "#5C7A96", lineHeight: 1 }}>×</button>
       </div>
     </Html>
   );
@@ -589,7 +590,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
         <IsometricCamera wc={wc} dc={dc} hc={hc} zoomFactor={zoomFactor} panRef={panRef} />
         <RaycastSetup raycastRef={raycastRef} />
 
-        <PanController panRef={panRef} didPanRef={didPanRef} enabled={!isDragging} />
+        <PanController panRef={panRef} didPanRef={didPanRef} enabled={!isDragging && mode === "view"} />
 
         <ambientLight color="#fdf4e8" intensity={0.55} />
         <directionalLight color="#ffffff" intensity={1.65} position={[1, 2.5, 0.5]} />

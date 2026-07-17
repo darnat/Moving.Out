@@ -268,11 +268,30 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
     }
   }
 
-  function handleFloorClick() {
+  function handleFloorClick(tapX: number, tapZ: number) {
     if (mode === "view") { setInfoBox(null); setInfoFurniture(null); return; }
-    if (isDragging || !hoverCell) return;
-    if (selectedBox)       commitBoxPlacement(selectedBox.id, hoverCell.col, hoverCell.row, effectiveLevel);
-    else if (selectedFurniture) commitFurniturePlacement(selectedFurniture.id, hoverCell.col, hoverCell.row, effectiveLevel);
+    if (isDragging) return;
+
+    // hoverCell is set on desktop (mousemove) and on mobile via onPointerDown.
+    // Fall back to computing snap from the tap point if still null.
+    let cell = hoverCell;
+    let level = effectiveLevel;
+
+    if (!cell) {
+      if (selectedBox) {
+        const sw = bwc(selectedBox.boxSize); const sd = bdc(selectedBox.boxSize);
+        cell = snapPoint(tapX, tapZ, widthCells, depthCells, sw, sd, allPlacedFootprints, selectedBox.id);
+        if (cell) level = stackSuggestion(cell.col, cell.row, sw, sd, allPlacedFootprints, selectedBox.id)?.level ?? 1;
+      } else if (selectedFurniture) {
+        const sw = selectedFurniture.widthIn / 12; const sd = selectedFurniture.depthIn / 12;
+        cell = snapPoint(tapX, tapZ, widthCells, depthCells, sw, sd, allPlacedFootprints, selectedFurniture.id);
+        if (cell) level = stackSuggestion(cell.col, cell.row, sw, sd, allPlacedFootprints, selectedFurniture.id)?.level ?? 1;
+      }
+    }
+
+    if (!cell) return;
+    if (selectedBox)           commitBoxPlacement(selectedBox.id, cell.col, cell.row, level);
+    else if (selectedFurniture) commitFurniturePlacement(selectedFurniture.id, cell.col, cell.row, level);
   }
 
   function handleDragBoxStart(e: PointerEvent, box: BoxWithRelations) {
