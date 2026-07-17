@@ -67,7 +67,7 @@ function IsometricCamera({ wc, dc, hc }: { wc: number; dc: number; hc: number })
     const worldW = (wc + dc) / Math.SQRT2;
     const worldH = (wc + dc + 2 * hc) / Math.sqrt(6);
     (camera as THREE.OrthographicCamera).zoom = Math.max(
-      Math.min(size.width / worldW, size.height / worldH) * 0.92,
+      Math.min(size.width / worldW, size.height / worldH) * 0.96,
       1,
     );
     camera.updateProjectionMatrix();
@@ -458,7 +458,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
 
   return (
     <div
-      className="w-[90%] min-w-0 overflow-hidden rounded-2xl glass"
+      className="w-[90%] lg:w-4/5 min-w-0 overflow-hidden rounded-2xl glass"
       style={{ border: "1px solid var(--color-kraft)", height: "min(76vh, 660px)", minHeight: 380 }}
     >
       <Canvas
