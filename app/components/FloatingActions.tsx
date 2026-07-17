@@ -4,16 +4,15 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { QrScanner } from "./QrScanner";
-import { findBoxByQrCode, findBoxSummaryByQrCode, setRetrieved } from "@/lib/actions/boxes";
+import { findBoxSummaryByQrCode, setRetrieved } from "@/lib/actions/boxes";
 import { haptic } from "@/lib/haptic";
 
 type State =
   | "idle"
-  | "register-scan"        // scanner open → register a box
-  | "register-processing"  // looking up QR, then navigating
-  | "find-scan"            // scanner open → find a box
-  | "find-loading"         // fetching box summary
-  | "find-found";          // result drawer visible
+  | "scanning"     // camera open
+  | "processing"   // fetching box data
+  | "found"        // showing info drawer
+  | "navigating";  // navigating to new-box form (no box found)
 
 type BoxSummary = {
   id: string;
@@ -39,34 +38,27 @@ export function FloatingActions() {
   const [state, setState]           = useState<State>("idle");
   const [foundBox, setFoundBox]     = useState<BoxSummary | null>(null);
   const [retrieving, setRetrieving] = useState(false);
-
   const router   = useRouter();
   const pathname = usePathname();
 
-  /* Clear the processing overlay once the new page has rendered */
+  /* Drop the navigating overlay once the new page has rendered */
   useEffect(() => {
-    setState((s) => (s === "register-processing" ? "idle" : s));
+    setState((s) => (s === "navigating" ? "idle" : s));
   }, [pathname]);
 
-  /* ── Register flow ── */
-  const handleRegisterScan = useCallback(async (text: string) => {
-    setState("register-processing");
-    const boxId = await findBoxByQrCode(text);
-    if (boxId) router.push(`/boxes/${boxId}`);
-    else router.push(`/boxes/new?qr=${encodeURIComponent(text)}`);
-  }, [router]);
-
-  /* ── Find flow ── */
-  const handleFindScan = useCallback(async (text: string) => {
-    setState("find-loading");
+  const handleScan = useCallback(async (text: string) => {
+    setState("processing");
     const box = await findBoxSummaryByQrCode(text);
     if (box) {
+      haptic("success");
       setFoundBox(box);
-      setState("find-found");
+      setState("found");
     } else {
-      setState("find-scan"); // not found — let user scan again
+      /* No box registered for this QR — go to registration form */
+      setState("navigating");
+      router.push(`/boxes/new?qr=${encodeURIComponent(text)}`);
     }
-  }, []);
+  }, [router]);
 
   async function handleMarkRetrieved() {
     if (!foundBox || retrieving) return;
@@ -77,51 +69,37 @@ export function FloatingActions() {
     setRetrieving(false);
   }
 
-  function closeFind() {
+  function closeDrawer() {
     setState("idle");
     setFoundBox(null);
   }
 
   return (
     <>
-      {/* Register: scanner */}
-      {state === "register-scan" && (
-        <QrScanner onScan={handleRegisterScan} onClose={() => setState("idle")} />
+      {/* Camera */}
+      {state === "scanning" && (
+        <QrScanner onScan={handleScan} onClose={() => setState("idle")} />
       )}
 
-      {/* Register: processing overlay */}
-      {state === "register-processing" && (
+      {/* Processing overlay */}
+      {(state === "processing" || state === "navigating") && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4"
           style={{ background: "rgba(0,0,0,0.88)" }}
         >
           <div className="w-12 h-12 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>Looking up box…</p>
+          <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+            {state === "navigating" ? "Opening form…" : "Looking up box…"}
+          </p>
         </div>
       )}
 
-      {/* Find: scanner */}
-      {state === "find-scan" && (
-        <QrScanner onScan={handleFindScan} onClose={closeFind} />
-      )}
-
-      {/* Find: loading */}
-      {state === "find-loading" && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4"
-          style={{ background: "rgba(0,0,0,0.88)" }}
-        >
-          <Spinner />
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>Finding box…</p>
-        </div>
-      )}
-
-      {/* Find: result drawer */}
-      {state === "find-found" && foundBox && (
+      {/* Info drawer */}
+      {state === "found" && foundBox && (
         <div
           className="fixed inset-0 z-50 flex flex-col justify-end"
           style={{ background: "rgba(0,0,0,0.6)" }}
-          onClick={closeFind}
+          onClick={closeDrawer}
         >
           <div
             className="rounded-t-3xl p-6 space-y-5"
@@ -154,7 +132,7 @@ export function FloatingActions() {
             </div>
 
             {foundBox.items.length > 0 && (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>Contents</p>
                 <div className="flex flex-wrap gap-1.5">
                   {foundBox.items.map((item, i) => (
@@ -178,12 +156,12 @@ export function FloatingActions() {
                   className="rounded-2xl py-4 text-sm font-medium flex items-center justify-center gap-2"
                   style={{ border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
                 >
-                  {retrieving ? <Spinner /> : "✓"} Mark retrieved
+                  {retrieving ? <Spinner /> : "✓"} Retrieved
                 </button>
               )}
               <Link
                 href={`/boxes/${foundBox.id}`}
-                onClick={closeFind}
+                onClick={closeDrawer}
                 className="rounded-2xl py-4 text-sm font-medium text-white flex items-center justify-center"
                 style={{ background: "var(--color-freight)", gridColumn: foundBox.retrieved ? "1 / -1" : "auto" }}
               >
@@ -192,7 +170,7 @@ export function FloatingActions() {
             </div>
 
             <button
-              onClick={() => { setFoundBox(null); setState("find-scan"); }}
+              onClick={() => { setFoundBox(null); setState("scanning"); }}
               className="w-full text-sm py-2"
               style={{ color: "var(--color-pencil)" }}
             >
@@ -202,32 +180,13 @@ export function FloatingActions() {
         </div>
       )}
 
-      {/* FAB cluster */}
+      {/* Single FAB */}
       <div
-        className="fixed right-4 z-40 flex flex-col items-end gap-3 lg:right-6"
+        className="fixed right-4 z-40 lg:right-6"
         style={{ bottom: "calc(4.5rem + env(safe-area-inset-bottom,0px) + 1rem)" }}
       >
-        {/* Find button */}
         <button
-          onClick={() => setState("find-scan")}
-          aria-label="Find a box"
-          className="w-11 h-11 rounded-full flex items-center justify-center transition-transform duration-200 active:scale-95"
-          style={{
-            background: "rgba(28,28,30,0.9)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            backdropFilter: "blur(20px)",
-            color: "rgba(255,255,255,0.7)",
-          }}
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-            <circle cx="11" cy="11" r="7" />
-            <path strokeLinecap="round" d="M21 21l-4.35-4.35" />
-          </svg>
-        </button>
-
-        {/* Register button */}
-        <button
-          onClick={() => setState("register-scan")}
+          onClick={() => setState("scanning")}
           aria-label="Scan QR code"
           className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-transform duration-200 active:scale-95"
           style={{

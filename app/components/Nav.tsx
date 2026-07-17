@@ -15,6 +15,7 @@ export async function Nav({ active }: { active?: "search" | "grid" | "furniture"
   return (
     <header
       style={{
+        paddingTop: "env(safe-area-inset-top)",
         borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
         background: "rgba(6, 6, 8, 0.72)",
         backdropFilter: "blur(28px) saturate(180%)",
