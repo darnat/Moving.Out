@@ -308,7 +308,7 @@ export function NewBoxForm({
                     type="button"
                     data-testid={`remove-item-${item}`}
                     onClick={() => removeItem(item)}
-                    className="text-lg leading-none transition-colors"
+                    className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0 text-xl transition-colors"
                     style={{ color: "var(--color-kraft)" }}
                     onMouseOver={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--color-freight)")}
                     onMouseOut={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--color-kraft)")}
@@ -326,54 +326,14 @@ export function NewBoxForm({
 
         {/* Photos */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="block text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>
-              Photos
-            </label>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => cameraInputRef.current?.click()}
-                className="rounded-lg px-2.5 py-1.5 text-xs font-medium flex items-center gap-1"
-                style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
-                title="Take photo"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="rounded-lg px-3 py-1.5 text-xs font-medium flex items-center gap-1.5"
-                style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
-              >
-                + Gallery
-              </button>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </div>
+          <label className="block text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>
+            Photos
+          </label>
 
-          {photos.length > 0 ? (
+          {photos.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
               {photos.map(({ preview }) => (
-                <div key={preview} className="relative group aspect-square">
+                <div key={preview} className="relative aspect-square">
                   <img
                     src={preview}
                     alt=""
@@ -383,44 +343,67 @@ export function NewBoxForm({
                   <button
                     type="button"
                     onClick={() => removePhoto(preview)}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-freight)" }}
+                    className="absolute top-1 right-1 w-8 h-8 rounded-full flex items-center justify-center text-base"
+                    style={{ background: "rgba(6,6,8,0.72)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }}
                   >
                     ×
                   </button>
                 </div>
               ))}
             </div>
-          ) : (
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="flex items-center justify-center gap-2 rounded-xl py-4 text-sm font-medium"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
+            >
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+              </svg>
+              Take photo
+            </button>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full flex flex-col items-center gap-2 rounded-xl px-4 py-5 transition-colors"
-              style={{ background: "var(--color-surface)", border: "2px dashed var(--color-kraft)", color: "var(--color-pencil)" }}
+              className="flex items-center justify-center gap-2 rounded-xl py-4 text-sm font-medium"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
             >
-              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: "var(--color-kraft)" }}>
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
               </svg>
-              <span className="text-sm">Tap to add photos</span>
+              Gallery
             </button>
-          )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleFileChange}
+          />
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 pt-2">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-xl px-4 py-3 text-sm font-medium transition-colors"
-            style={{ border: "1px solid var(--color-kraft)", color: "var(--color-pencil)" }}
-          >
-            Cancel
-          </button>
+        <div className="space-y-2 pt-2">
           <button
             type="submit"
             data-testid="save-box-btn"
             disabled={!canSubmit}
-            className="flex-1 rounded-xl px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
+            className="w-full rounded-xl py-4 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
             style={{ background: "var(--color-freight)" }}
           >
             {saving ? (
@@ -437,7 +420,7 @@ export function NewBoxForm({
             type="button"
             disabled={!canSubmit}
             onClick={() => handleSubmitInternal(true)}
-            className="rounded-xl px-4 py-3 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center gap-2"
+            className="w-full rounded-xl py-4 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
             style={{ border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
           >
             {saving ? (
@@ -445,7 +428,15 @@ export function NewBoxForm({
                 <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" opacity="0.9"/>
                 <path d="M12 2a10 10 0 0 0-10 10" strokeLinecap="round" opacity="0.3"/>
               </svg>
-            ) : "+ Add another"}
+            ) : "+ Save & add another"}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="w-full py-3 text-sm transition-colors"
+            style={{ color: "var(--color-pencil)" }}
+          >
+            Cancel
           </button>
         </div>
       </form>

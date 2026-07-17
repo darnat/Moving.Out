@@ -13,8 +13,8 @@ const selectStyle: React.CSSProperties = {
   border: "1px solid var(--color-kraft)",
   color: "var(--color-pencil)",
   borderRadius: 10,
-  padding: "6px 10px",
-  fontSize: 12,
+  padding: "10px 12px",
+  fontSize: 14,
 };
 
 export function BoxesClient({ boxes }: { boxes: BoxWithRelations[] }) {
@@ -109,7 +109,7 @@ export function BoxesClient({ boxes }: { boxes: BoxWithRelations[] }) {
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap">
         <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} style={selectStyle}>
           <option value="label">Label A→Z</option>
           <option value="recent">Recently added</option>
@@ -129,7 +129,7 @@ export function BoxesClient({ boxes }: { boxes: BoxWithRelations[] }) {
           <button
             type="button"
             onClick={() => setShowRetrieved((v) => !v)}
-            className="rounded-lg px-3 py-1.5 text-xs"
+            className="rounded-lg px-3 py-2.5 text-sm"
             style={{ border: "1px solid var(--color-kraft)", color: "var(--color-pencil)" }}
           >
             {showRetrieved ? `Hide retrieved (${retrieved})` : `Show retrieved (${retrieved})`}
