@@ -22,45 +22,59 @@ export async function placeBox(
 ): Promise<{ error?: string }> {
   const userId = await requireUserId();
 
-  const box = await prisma.box.findFirst({
-    where: { id: boxId, userId },
-    include: { boxSize: true },
-  });
+  // Fetch the box, all other placed boxes, and all placed furniture in parallel
+  const [box, placedBoxes, placedFurniture] = await Promise.all([
+    prisma.box.findFirst({ where: { id: boxId, userId }, include: { boxSize: true } }),
+    prisma.box.findMany({
+      where: { userId, id: { not: boxId }, retrieved: false, gridCol: { not: null } },
+      include: { boxSize: true },
+    }),
+    prisma.furnitureItem.findMany({ where: { userId, gridCol: { not: null } } }),
+  ]);
+
   if (!box) return { error: "Box not found" };
 
   const nw = bw(box.boxSize);
   const nd = bd(box.boxSize);
   const nh = bh(box.boxSize);
 
-  const placedBoxes = await prisma.box.findMany({
-    where: { userId, id: { not: boxId }, retrieved: false, gridCol: { not: null } },
-    include: { boxSize: true },
-  });
-
+  // Collision with other boxes
   const conflict = placedBoxes.find((b) => {
     const ew = bw(b.boxSize);
     const ed = bd(b.boxSize);
     const eh = bh(b.boxSize);
-
-    // Axis-aligned interval overlap in col, row, and stack level
     const colOverlap   = gridCol    < b.gridCol!    + ew - EPS && gridCol    + nw > b.gridCol!    + EPS;
     const rowOverlap   = gridRow    < b.gridRow!    + ed - EPS && gridRow    + nd > b.gridRow!    + EPS;
     const levelOverlap = stackLevel < b.stackLevel! + eh - EPS && stackLevel + nh > b.stackLevel! + EPS;
-
     return colOverlap && rowOverlap && levelOverlap;
   });
-
   if (conflict) return { error: `Occupied by ${conflict.labelNumber}` };
 
-  // Require support beneath any box not on the floor
+  // Collision with furniture
+  const furnitureConflict = placedFurniture.find((f) => {
+    const fw = f.widthIn / 12; const fd = f.depthIn / 12; const fh = f.heightIn / 12;
+    const colOverlap   = gridCol    < f.gridCol!    + fw - EPS && gridCol    + nw > f.gridCol!    + EPS;
+    const rowOverlap   = gridRow    < f.gridRow!    + fd - EPS && gridRow    + nd > f.gridRow!    + EPS;
+    const levelOverlap = stackLevel < f.stackLevel! + fh - EPS && stackLevel + nh > f.stackLevel! + EPS;
+    return colOverlap && rowOverlap && levelOverlap;
+  });
+  if (furnitureConflict) return { error: `Occupied by ${furnitureConflict.groupName ?? furnitureConflict.name}` };
+
+  // Require support beneath any box not on the floor — boxes OR furniture count
   if (stackLevel > 1) {
-    const hasSupport = placedBoxes.some((b) => {
+    const boxSupport = placedBoxes.some((b) => {
       const ew = bw(b.boxSize); const ed = bd(b.boxSize);
       const colOk = gridCol < b.gridCol! + ew - EPS && gridCol + nw > b.gridCol! + EPS;
       const rowOk = gridRow < b.gridRow! + ed - EPS && gridRow + nd > b.gridRow! + EPS;
       return colOk && rowOk && Math.abs(b.stackLevel! + bh(b.boxSize) - stackLevel) < 0.01;
     });
-    if (!hasSupport) return { error: "Nothing to stack on at that level" };
+    const furnSupport = !boxSupport && placedFurniture.some((f) => {
+      const fw = f.widthIn / 12; const fd = f.depthIn / 12;
+      const colOk = gridCol < f.gridCol! + fw - EPS && gridCol + nw > f.gridCol! + EPS;
+      const rowOk = gridRow < f.gridRow! + fd - EPS && gridRow + nd > f.gridRow! + EPS;
+      return colOk && rowOk && Math.abs(f.stackLevel! + f.heightIn / 12 - stackLevel) < 0.01;
+    });
+    if (!boxSupport && !furnSupport) return { error: "Nothing to stack on at that level" };
   }
 
   await prisma.box.updateMany({
