@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useTransition } from "react";
+import { useState, useRef, useEffect, useTransition, useMemo, useCallback } from "react";
 import { Box, BoxSize, Room, FurnitureItem } from "@/app/generated/prisma/client";
 import { placeBox, unplaceBox } from "@/lib/actions/grid";
 import { setRetrieved } from "@/lib/actions/boxes";
@@ -9,7 +9,6 @@ import { GridCanvas3D } from "./GridCanvas";
 
 type BoxWithRelations = Box & { boxSize: BoxSize; room: Room };
 
-/* ── Footprint: generic placed-item shape for snap/stack logic ── */
 type Footprint = {
   id: string;
   gridCol: number;
@@ -19,7 +18,6 @@ type Footprint = {
   label: string;
 };
 
-/* ── Dimension helpers ── */
 function bwc(bs: BoxSize) { return (bs.widthIn  || bs.widthCells  * 12) / 12; }
 function bdc(bs: BoxSize) { return (bs.depthIn  || bs.depthCells  * 12) / 12; }
 function bhc(bs: BoxSize) { return (bs.heightIn || bs.heightCells * 12) / 12; }
@@ -43,7 +41,6 @@ function Spinner() {
   );
 }
 
-/* ── Snap: accepts grid-space fractional coordinates directly (no SVG math) ── */
 function snapPoint(
   fcol: number, frow: number,
   wCells: number, dCells: number,
@@ -106,11 +103,15 @@ function stackSuggestion(
   return top > 0 ? { level: top, onBox: name! } : null;
 }
 
-/* ── Main ── */
-export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heightCells }: {
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 4.0;
+const ZOOM_STEP = 0.12;
+
+export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heightCells, focusBoxId }: {
   boxes: BoxWithRelations[];
   furnitureItems: FurnitureItem[];
   widthCells: number; depthCells: number; heightCells: number;
+  focusBoxId?: string;
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -123,17 +124,74 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
   const [mode,              setMode]              = useState<"view" | "place">("view");
   const [suggestion,        setSuggestion]        = useState<{ level: number; onBox: string } | null>(null);
   const [isDragging,        setIsDragging]        = useState(false);
+  const [zoomFactor,        setZoomFactor]        = useState(1.0);
 
-  /* Local state persists placements without needing router.refresh() */
   const [localBoxes,      setLocalBoxes]      = useState(boxes);
   const [localFurniture,  setLocalFurniture]  = useState(furnitureItems);
 
-  /* Ref to floor-raycast function exposed by the 3D canvas */
   const raycastRef = useRef<((cx: number, cy: number) => { col: number; row: number } | null) | null>(null);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
 
-  /* Sync if server re-renders the parent (navigation, hard refresh) */
   useEffect(() => { setLocalBoxes(boxes); },         [boxes]);
   useEffect(() => { setLocalFurniture(furnitureItems); }, [furnitureItems]);
+
+  /* Auto-focus box from URL param */
+  useEffect(() => {
+    if (!focusBoxId) return;
+    const box = boxes.find((b) => b.id === focusBoxId);
+    if (box) setInfoBox(box);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Room index: stable sorted order → palette index */
+  const roomIndex = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const b of boxes) seen.set(b.roomId, b.room.name);
+    const sorted = Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+    return new Map(sorted.map(([id], i) => [id, i]));
+  }, [boxes]);
+
+  /* Zoom via mouse wheel and pinch */
+  const handleWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault();
+    setZoomFactor((z) =>
+      Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z * (1 - e.deltaY * ZOOM_STEP * 0.01))),
+    );
+  }, []);
+
+  const pinchRef = useRef<number | null>(null);
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchRef.current = Math.hypot(dx, dy);
+    }
+  }, []);
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (e.touches.length !== 2 || pinchRef.current === null) return;
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.hypot(dx, dy);
+    const scale = dist / pinchRef.current;
+    pinchRef.current = dist;
+    setZoomFactor((z) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z * scale)));
+  }, []);
+  const handleTouchEnd = useCallback(() => { pinchRef.current = null; }, []);
+
+  useEffect(() => {
+    const el = canvasWrapperRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    el.addEventListener("touchstart", handleTouchStart, { passive: false });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    el.addEventListener("touchend", handleTouchEnd);
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+      el.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   const placedBoxes       = localBoxes.filter(b => b.gridCol !== null);
   const unplacedBoxes     = localBoxes.filter(b => b.gridCol === null);
@@ -155,9 +213,7 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
     return () => window.removeEventListener("keydown", h);
   }, [mode]);
 
-  /* ── Placement commits ── */
   function commitBoxPlacement(boxId: string, col: number, row: number, level: number) {
-    /* Update local state immediately — no router.refresh() needed */
     setLocalBoxes(prev => prev.map(b => b.id === boxId ? { ...b, gridCol: col, gridRow: row, stackLevel: level } : b));
     setIsDragging(false);
     setSelectedBox(null); setMode("view"); setHoverCell(null); setSuggestion(null);
@@ -165,7 +221,7 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
       const result = await placeBox(boxId, col, row, level);
       if (result.error) {
         setError(result.error);
-        setLocalBoxes(boxes); // revert on server error
+        setLocalBoxes(boxes);
       } else {
         setError("");
       }
@@ -180,14 +236,13 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
       const result = await placeFurnitureItem(itemId, col, row, level);
       if (result.error) {
         setError(result.error);
-        setLocalFurniture(furnitureItems); // revert on server error
+        setLocalFurniture(furnitureItems);
       } else {
         setError("");
       }
     });
   }
 
-  /* ── Floor hover (non-drag placement preview) ── */
   function handleFloorHover(col: number, row: number) {
     if (isDragging || mode !== "place") return;
     if (selectedBox) {
@@ -205,7 +260,6 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
     }
   }
 
-  /* ── Floor click (place or deselect) ── */
   function handleFloorClick() {
     if (mode === "view") { setInfoBox(null); setInfoFurniture(null); return; }
     if (isDragging || !hoverCell) return;
@@ -213,7 +267,6 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
     else if (selectedFurniture) commitFurniturePlacement(selectedFurniture.id, hoverCell.col, hoverCell.row, effectiveLevel);
   }
 
-  /* ── Box drag (pointer-capture on native event) ── */
   function handleDragBoxStart(e: PointerEvent, box: BoxWithRelations) {
     e.stopPropagation();
     const boxId = box.id;
@@ -243,7 +296,6 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
     document.addEventListener("pointerup",   onUp,   true);
   }
 
-  /* ── Furniture drag ── */
   function handleDragFurnitureStart(e: PointerEvent, item: FurnitureItem) {
     e.stopPropagation();
     const itemId = item.id;
@@ -273,7 +325,6 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
     document.addEventListener("pointerup",   onUp,   true);
   }
 
-  /* ── Other actions ── */
   function handleMoveBox(box: BoxWithRelations) {
     setSelectedBox(box); setSelectedFurniture(null); setInfoBox(null); setInfoFurniture(null);
     setMode("place"); setHoverCell(null); setSuggestion(null); setError("");
@@ -317,34 +368,61 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
 
   return (
     <div className="flex gap-6 flex-col lg:flex-row">
-      {/* ── 3D canvas ── */}
-      <GridCanvas3D
-        placedBoxes={placedBoxes}
-        placedFurniture={placedFurniture}
-        widthCells={widthCells}
-        depthCells={depthCells}
-        heightCells={heightCells}
-        selectedBox={selectedBox}
-        selectedFurniture={selectedFurniture}
-        hoverCell={hoverCell}
-        isDragging={isDragging}
-        effectiveLevel={effectiveLevel}
-        infoBox={infoBox}
-        infoFurniture={infoFurniture}
-        mode={mode}
-        isMoving={isMoving}
-        isMovingFurniture={isMovingFurniture}
-        raycastRef={raycastRef}
-        onSelectBox={(b) => { setInfoBox(b); setInfoFurniture(null); }}
-        onSelectFurniture={(f) => { setInfoFurniture(f); setInfoBox(null); }}
-        onFloorHover={handleFloorHover}
-        onFloorLeave={() => { if (!isDragging) { setHoverCell(null); setSuggestion(null); } }}
-        onFloorClick={handleFloorClick}
-        onDragBoxStart={handleDragBoxStart}
-        onDragFurnitureStart={handleDragFurnitureStart}
-        onUnplaceBox={handleUnplaceBox}
-        onUnplaceFurniture={handleUnplaceFurniture}
-      />
+      {/* ── 3D canvas with zoom wrapper ── */}
+      <div ref={canvasWrapperRef} className="w-full lg:w-4/5 min-w-0" style={{ touchAction: "none" }}>
+        <GridCanvas3D
+          placedBoxes={placedBoxes}
+          placedFurniture={placedFurniture}
+          widthCells={widthCells}
+          depthCells={depthCells}
+          heightCells={heightCells}
+          selectedBox={selectedBox}
+          selectedFurniture={selectedFurniture}
+          hoverCell={hoverCell}
+          isDragging={isDragging}
+          effectiveLevel={effectiveLevel}
+          infoBox={infoBox}
+          infoFurniture={infoFurniture}
+          mode={mode}
+          isMoving={isMoving}
+          isMovingFurniture={isMovingFurniture}
+          zoomFactor={zoomFactor}
+          roomIndex={roomIndex}
+          raycastRef={raycastRef}
+          onSelectBox={(b) => { setInfoBox(b); setInfoFurniture(null); }}
+          onSelectFurniture={(f) => { setInfoFurniture(f); setInfoBox(null); }}
+          onFloorHover={handleFloorHover}
+          onFloorLeave={() => { if (!isDragging) { setHoverCell(null); setSuggestion(null); } }}
+          onFloorClick={handleFloorClick}
+          onDragBoxStart={handleDragBoxStart}
+          onDragFurnitureStart={handleDragFurnitureStart}
+          onUnplaceBox={handleUnplaceBox}
+          onUnplaceFurniture={handleUnplaceFurniture}
+        />
+        {/* Zoom controls */}
+        <div className="flex items-center gap-2 mt-2 px-1">
+          <button
+            onClick={() => setZoomFactor((z) => Math.max(ZOOM_MIN, z / (1 + ZOOM_STEP)))}
+            className="rounded-lg w-8 h-8 flex items-center justify-center text-lg"
+            style={{ border: "1px solid var(--color-kraft)", color: "var(--color-pencil)" }}
+          >−</button>
+          <div className="flex-1 text-center text-xs" style={{ color: "var(--color-pencil)" }}>
+            {Math.round(zoomFactor * 100)}%
+          </div>
+          <button
+            onClick={() => setZoomFactor((z) => Math.min(ZOOM_MAX, z * (1 + ZOOM_STEP)))}
+            className="rounded-lg w-8 h-8 flex items-center justify-center text-lg"
+            style={{ border: "1px solid var(--color-kraft)", color: "var(--color-pencil)" }}
+          >+</button>
+          {zoomFactor !== 1 && (
+            <button
+              onClick={() => setZoomFactor(1)}
+              className="rounded-lg px-2 h-8 text-xs"
+              style={{ border: "1px solid var(--color-kraft)", color: "var(--color-pencil)" }}
+            >Reset</button>
+          )}
+        </div>
+      </div>
 
       {/* ── Sidebar ── */}
       <div className="w-full lg:flex-1 lg:min-w-0 space-y-4">
@@ -377,6 +455,28 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
         )}
 
         {error && <p className="text-xs px-1" style={{color:"var(--color-freight)"}}>{error}</p>}
+
+        {/* Room legend */}
+        {roomIndex.size > 1 && (
+          <div className="space-y-1.5">
+            <h2 className="text-xs font-medium uppercase tracking-wider" style={{color:"var(--color-pencil)"}}>
+              Rooms
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {Array.from(roomIndex.entries()).map(([roomId, idx]) => {
+                const box = boxes.find((b) => b.roomId === roomId);
+                if (!box) return null;
+                const PALETTE = ["#C89050","#D45A45","#5A9E6A","#5578C0","#9A55C0","#46B0B8","#D49830","#D06858"];
+                return (
+                  <div key={roomId} className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{background: PALETTE[idx % PALETTE.length]}} />
+                    <span className="text-xs" style={{color:"var(--color-pencil)"}}>{box.room.name}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Unplaced boxes */}
         <div>
@@ -456,26 +556,32 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
             <div>
               <p className="label-number font-bold text-lg" style={{color:"var(--color-ink)"}}>{infoBox.labelNumber}</p>
               <p className="text-xs mt-1" style={{color:"var(--color-pencil)"}}>{infoBox.room.name} · {infoBox.boxSize.name}</p>
-              <p className="text-xs mt-0.5" style={{color:"var(--color-pencil)"}}>
-                {Math.round(infoBox.gridCol!*12)}" from left · {Math.round(infoBox.gridRow!*12)}" from back · Level {Math.round(infoBox.stackLevel!)}
-              </p>
+              {infoBox.gridCol !== null && (
+                <p className="text-xs mt-0.5" style={{color:"var(--color-pencil)"}}>
+                  {Math.round(infoBox.gridCol!*12)}" from left · {Math.round(infoBox.gridRow!*12)}" from back · Level {Math.round(infoBox.stackLevel!)}
+                </p>
+              )}
             </div>
-            <button onClick={()=>handleMoveBox(infoBox)} disabled={isPending}
-                    className="w-full rounded-lg py-2.5 text-sm font-medium flex items-center justify-center gap-2"
-                    style={{background:"var(--color-freight)",color:"#fff"}}>
-              Move box
-            </button>
+            {infoBox.gridCol !== null && (
+              <button onClick={()=>handleMoveBox(infoBox)} disabled={isPending}
+                      className="w-full rounded-lg py-2.5 text-sm font-medium flex items-center justify-center gap-2"
+                      style={{background:"var(--color-freight)",color:"#fff"}}>
+                Move box
+              </button>
+            )}
             <div className="flex gap-2">
               <button onClick={handleRetrieve} data-testid="retrieve-btn" disabled={isPending}
                       className="flex-1 rounded-lg py-2 text-xs font-medium flex items-center justify-center gap-1.5"
                       style={{background:"var(--color-paper)",border:"1px solid var(--color-kraft)",color:"var(--color-ink)"}}>
                 {isPending?<Spinner/>:null} Retrieved
               </button>
-              <button onClick={handleUnplaceBox} data-testid="unplace-btn" disabled={isPending}
-                      className="rounded-lg px-3 py-2 text-xs flex items-center gap-1.5"
-                      style={{border:"1px solid color-mix(in srgb, var(--color-freight) 30%, transparent)",color:"var(--color-freight)"}}>
-                {isPending?<Spinner/>:null} Remove
-              </button>
+              {infoBox.gridCol !== null && (
+                <button onClick={handleUnplaceBox} data-testid="unplace-btn" disabled={isPending}
+                        className="rounded-lg px-3 py-2 text-xs flex items-center gap-1.5"
+                        style={{border:"1px solid color-mix(in srgb, var(--color-freight) 30%, transparent)",color:"var(--color-freight)"}}>
+                  {isPending?<Spinner/>:null} Remove
+                </button>
+              )}
             </div>
           </div>
         )}

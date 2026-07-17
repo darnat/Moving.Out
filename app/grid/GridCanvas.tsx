@@ -21,6 +21,23 @@ function shade(hex: string, factor: number): string {
   return `rgb(${clamp(r * factor)} ${clamp(g * factor)} ${clamp(b * factor)})`;
 }
 
+/* Warm palette — earthy tones that read well in isometric 3D */
+const ROOM_PALETTE = [
+  "#C89050", // kraft cardboard
+  "#D45A45", // terracotta
+  "#5A9E6A", // sage green
+  "#5578C0", // denim blue
+  "#9A55C0", // plum
+  "#46B0B8", // teal
+  "#D49830", // amber
+  "#D06858", // coral
+];
+
+function getRoomColor(roomId: string, roomIndex: Map<string, number>): string {
+  const idx = roomIndex.get(roomId) ?? 0;
+  return ROOM_PALETTE[idx % ROOM_PALETTE.length];
+}
+
 /* ── Props type ── */
 export interface GridCanvas3DProps {
   placedBoxes: BoxWithRelations[];
@@ -38,6 +55,8 @@ export interface GridCanvas3DProps {
   mode: "view" | "place";
   isMoving: boolean;
   isMovingFurniture: boolean;
+  zoomFactor: number;
+  roomIndex: Map<string, number>;
   raycastRef: React.MutableRefObject<((cx: number, cy: number) => { col: number; row: number } | null) | null>;
   onSelectBox: (box: BoxWithRelations) => void;
   onSelectFurniture: (item: FurnitureItem) => void;
@@ -51,27 +70,22 @@ export interface GridCanvas3DProps {
 }
 
 /* ── Isometric orthographic camera setup ── */
-function IsometricCamera({ wc, dc, hc }: { wc: number; dc: number; hc: number }) {
+function IsometricCamera({ wc, dc, hc, zoomFactor }: { wc: number; dc: number; hc: number; zoomFactor: number }) {
   const { camera, size } = useThree();
   useEffect(() => {
     const D = Math.max(wc + dc, hc + 4) * 12;
     camera.position.set(wc / 2 + D, D, dc / 2 + D);
-    /* lookAt y = hc/2 centres the scene in screen space (proved by isometric
-       projection math: the screen-up midpoint of the bounding box is at y=hc/2) */
     camera.lookAt(wc / 2, hc / 2, dc / 2);
     camera.up.set(0, 1, 0);
     camera.updateMatrixWorld();
-    /* Exact screen-space extents (true isometric, camera at (1,1,1) direction):
-       screen width  = (wc + dc) / √2
-       screen height = (wc + dc + 2·hc) / √6  */
     const worldW = (wc + dc) / Math.SQRT2;
     const worldH = (wc + dc + 2 * hc) / Math.sqrt(6);
     (camera as THREE.OrthographicCamera).zoom = Math.max(
       Math.min(size.width / worldW, size.height / worldH) * 0.96,
       1,
-    );
+    ) * zoomFactor;
     camera.updateProjectionMatrix();
-  }, [camera, size, wc, dc, hc]);
+  }, [camera, size, wc, dc, hc, zoomFactor]);
   return null;
 }
 
@@ -135,8 +149,8 @@ function SceneWalls({ wc, dc, hc }: { wc: number; dc: number; hc: number }) {
   const hLineGeo = useMemo(() => {
     const pts: THREE.Vector3[] = [];
     for (let z = 1; z < hc; z++) {
-      pts.push(new THREE.Vector3(0, z, 0), new THREE.Vector3(0, z, dc));   // left wall
-      pts.push(new THREE.Vector3(0, z, 0), new THREE.Vector3(wc, z, 0));   // right wall
+      pts.push(new THREE.Vector3(0, z, 0), new THREE.Vector3(0, z, dc));
+      pts.push(new THREE.Vector3(0, z, 0), new THREE.Vector3(wc, z, 0));
     }
     return new THREE.BufferGeometry().setFromPoints(pts);
   }, [wc, dc, hc]);
@@ -148,12 +162,10 @@ function SceneWalls({ wc, dc, hc }: { wc: number; dc: number; hc: number }) {
 
   return (
     <group>
-      {/* Left wall: X=0 plane, facing +X (rotation around Y by +π/2) */}
       <mesh position={[0, hc / 2, dc / 2]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[dc, hc]} />
         <meshStandardMaterial color="#C8C3BB" roughness={1} metalness={0} />
       </mesh>
-      {/* Right wall: Z=0 plane, default facing +Z */}
       <mesh position={[wc / 2, hc / 2, 0]}>
         <planeGeometry args={[wc, hc]} />
         <meshStandardMaterial color="#DDDAD0" roughness={1} metalness={0} />
@@ -161,7 +173,6 @@ function SceneWalls({ wc, dc, hc }: { wc: number; dc: number; hc: number }) {
       <lineSegments geometry={hLineGeo} renderOrder={1}>
         <lineBasicMaterial color="#000000" transparent opacity={0.055} />
       </lineSegments>
-      {/* Vertical corner edge */}
       <lineSegments geometry={cornerGeo} renderOrder={2}>
         <lineBasicMaterial color="#948D84" />
       </lineSegments>
@@ -189,19 +200,21 @@ function FloorInteraction({ wc, dc, onMove, onClick }: {
 }
 
 /* ── Single moving box ── */
-function BoxMesh3D({ box, isSelected, onClick, onDragStart, inPlaceMode, opacity = 1 }: {
+function BoxMesh3D({ box, isSelected, onClick, onDragStart, inPlaceMode, opacity = 1, roomColor }: {
   box: BoxWithRelations;
   isSelected: boolean;
   onClick?: () => void;
   onDragStart?: (e: PointerEvent, box: BoxWithRelations) => void;
   inPlaceMode: boolean;
   opacity?: number;
+  roomColor: string;
 }) {
   const { gridCol: c, gridRow: r, stackLevel: sl, boxSize, labelNumber } = box;
   const col = c ?? 0; const row = r ?? 0;
   const wc  = bwc(boxSize); const dc = bdc(boxSize); const hc = bhc(boxSize);
   const z0  = (sl ?? 1) - 1;
   const edgeGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(wc, hc, dc)), [wc, hc, dc]);
+  const baseColor = isSelected ? "#FFD060" : roomColor;
 
   return (
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
@@ -227,7 +240,7 @@ function BoxMesh3D({ box, isSelected, onClick, onDragStart, inPlaceMode, opacity
       >
         <boxGeometry args={[wc, hc, dc]} />
         <meshStandardMaterial
-          color={isSelected ? "#FFD060" : "#C89050"}
+          color={baseColor}
           roughness={0.85}
           metalness={0}
           transparent={opacity < 1}
@@ -235,7 +248,7 @@ function BoxMesh3D({ box, isSelected, onClick, onDragStart, inPlaceMode, opacity
         />
       </mesh>
       <lineSegments geometry={edgeGeo} renderOrder={2}>
-        <lineBasicMaterial color="#62461A" transparent opacity={opacity * 0.55} />
+        <lineBasicMaterial color={shade(roomColor, 0.42)} transparent opacity={opacity * 0.55} />
       </lineSegments>
       {opacity > 0.3 && (
         <Text
@@ -428,6 +441,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
     hoverCell, isDragging, effectiveLevel,
     infoBox, infoFurniture, mode,
     isMoving, isMovingFurniture,
+    zoomFactor, roomIndex,
     raycastRef,
     onSelectBox, onSelectFurniture,
     onFloorHover, onFloorLeave, onFloorClick,
@@ -435,8 +449,6 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
     onUnplaceBox, onUnplaceFurniture,
   } = props;
 
-  /* Depth-sort items so back items render before front items (painter's algorithm).
-     In isometric orthographic projection this matters for overlapping at the same Y. */
   const sortedItems = useMemo(() => {
     type SI = { kind: "box"; box: BoxWithRelations } | { kind: "fi"; fi: FurnitureItem };
     const items: SI[] = [
@@ -471,10 +483,9 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
         }}
         onPointerLeave={onFloorLeave}
       >
-        <IsometricCamera wc={wc} dc={dc} hc={hc} />
+        <IsometricCamera wc={wc} dc={dc} hc={hc} zoomFactor={zoomFactor} />
         <RaycastSetup raycastRef={raycastRef} />
 
-        {/* Lighting — warm ambient + directional from upper-front-right for isometric face shading */}
         <ambientLight color="#fdf4e8" intensity={0.55} />
         <directionalLight color="#ffffff" intensity={1.65} position={[1, 2.5, 0.5]} />
         <directionalLight color="#8090bb" intensity={0.18} position={[-1, -1, -1]} />
@@ -483,7 +494,6 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
         <SceneWalls wc={wc} dc={dc} hc={hc} />
         <FloorInteraction wc={wc} dc={dc} onMove={onFloorHover} onClick={onFloorClick} />
 
-        {/* Placed items (depth-sorted) */}
         {sortedItems.map(item =>
           item.kind === "box"
             ? <BoxMesh3D
@@ -493,6 +503,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
                 onClick={() => onSelectBox(item.box)}
                 onDragStart={onDragBoxStart}
                 inPlaceMode={mode === "place"}
+                roomColor={getRoomColor(item.box.roomId, roomIndex)}
               />
             : <FurnitureMesh3D
                 key={item.fi.id}
@@ -504,21 +515,26 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
               />
         )}
 
-        {/* Dimmed origin when moving a placed item */}
         {isMoving && selectedBox && selectedBox.gridCol !== null && (
-          <BoxMesh3D box={selectedBox} isSelected={false} inPlaceMode={true} opacity={0.22} />
+          <BoxMesh3D
+            box={selectedBox}
+            isSelected={false}
+            inPlaceMode={true}
+            opacity={0.22}
+            roomColor={getRoomColor(selectedBox.roomId, roomIndex)}
+          />
         )}
         {isMovingFurniture && selectedFurniture && selectedFurniture.gridCol !== null && (
           <FurnitureMesh3D item={selectedFurniture} isSelected={false} inPlaceMode={true} opacity={0.22} />
         )}
 
-        {/* Live-dragged item at cursor snapped position */}
         {isDragging && selectedBox && hoverCell && (
           <BoxMesh3D
             box={{ ...selectedBox, gridCol: hoverCell.col, gridRow: hoverCell.row, stackLevel: effectiveLevel }}
             isSelected={false}
             inPlaceMode={true}
             opacity={0.9}
+            roomColor={getRoomColor(selectedBox.roomId, roomIndex)}
           />
         )}
         {isDragging && selectedFurniture && hoverCell && (
@@ -530,7 +546,6 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
           />
         )}
 
-        {/* Ghost preview for hover-then-click placement */}
         {!isDragging && hoverCell && selectedBox && mode === "place" && (
           <GhostPreview
             col={hoverCell.col}
@@ -554,7 +569,6 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
           />
         )}
 
-        {/* Action overlays above selected items */}
         {infoBox && mode === "view" && infoBox.gridCol !== null && (
           <BoxOverlay box={infoBox} onDragStart={onDragBoxStart} onUnplace={onUnplaceBox} />
         )}

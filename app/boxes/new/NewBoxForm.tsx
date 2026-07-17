@@ -25,7 +25,11 @@ export function NewBoxForm({
   const [showScanner, setShowScanner] = useState(false);
   const [photos, setPhotos] = useState<PhotoEntry[]>([]);
   const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const [failedPhotos, setFailedPhotos] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   /* Revoke object URLs when entries are removed or component unmounts */
   useEffect(() => {
@@ -57,6 +61,7 @@ export function NewBoxForm({
     }));
     setPhotos((prev) => [...prev, ...entries]);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
   }
 
   function removePhoto(preview: string) {
@@ -67,33 +72,65 @@ export function NewBoxForm({
     });
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function resetForm() {
+    setItems([]);
+    setItemInput("");
+    setScannedQr(null);
+    photos.forEach((p) => URL.revokeObjectURL(p.preview));
+    setPhotos([]);
+    setFailedPhotos(0);
+    formRef.current?.reset();
+    /* Re-apply mode so the UI updates correctly */
+    setMode("manual");
+  }
+
+  async function handleSubmitInternal(andAddAnother: boolean) {
     setSaving(true);
+    setFailedPhotos(0);
     try {
-      const fd = new FormData(e.currentTarget);
+      const fd = new FormData(formRef.current!);
       fd.set("items", JSON.stringify(items));
       if (mode === "qr") fd.set("qrCode", scannedQr ?? "");
 
       const boxId = await createBox(fd);
 
       if (photos.length > 0) {
-        await Promise.all(
+        const results = await Promise.all(
           photos.map(async ({ file }) => {
-            const form = new FormData();
-            form.append("file", file);
-            const res = await fetch("/api/upload", { method: "POST", body: form });
-            const { url } = await res.json();
-            await addPhoto(boxId, url);
+            try {
+              const form = new FormData();
+              form.append("file", file);
+              const res = await fetch("/api/upload", { method: "POST", body: form });
+              if (!res.ok) return false;
+              const { url } = await res.json();
+              await addPhoto(boxId, url);
+              return true;
+            } catch {
+              return false;
+            }
           }),
         );
+        const failures = results.filter((ok) => !ok).length;
+        if (failures > 0) setFailedPhotos(failures);
       }
 
-      router.push(`/boxes/${boxId}`);
+      if (andAddAnother) {
+        setSavedCount((n) => n + 1);
+        resetForm();
+      } else {
+        router.push(`/boxes/${boxId}`);
+      }
     } finally {
       setSaving(false);
     }
   }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    await handleSubmitInternal(false);
+  }
+
+  const canSubmit = !saving && !(mode === "qr" && !scannedQr);
 
   return (
     <>
@@ -101,7 +138,25 @@ export function NewBoxForm({
         <QrScanner onScan={handleScan} onClose={() => setShowScanner(false)} />
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      {savedCount > 0 && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: "var(--color-freight-tint)", border: "1px solid rgba(255,107,43,0.28)", color: "var(--color-freight)" }}
+        >
+          Box saved — {savedCount} added this session
+        </div>
+      )}
+
+      {failedPhotos > 0 && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: "rgba(255,59,48,0.08)", border: "1px solid rgba(255,59,48,0.25)", color: "#FF3B30" }}
+        >
+          {failedPhotos} photo{failedPhotos > 1 ? "s" : ""} failed to upload — the box was saved but those photos are missing
+        </div>
+      )}
+
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
         {/* Mode toggle */}
         <div
           className="flex rounded-xl p-1 gap-1"
@@ -275,19 +330,41 @@ export function NewBoxForm({
             <label className="block text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>
               Photos
             </label>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium flex items-center gap-1.5"
-              style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
-            >
-              + Add photos
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="rounded-lg px-2.5 py-1.5 text-xs font-medium flex items-center gap-1"
+                style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
+                title="Take photo"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium flex items-center gap-1.5"
+                style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
+              >
+                + Gallery
+              </button>
+            </div>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -334,7 +411,7 @@ export function NewBoxForm({
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex-1 rounded-xl px-4 py-3 text-sm font-medium transition-colors"
+            className="rounded-xl px-4 py-3 text-sm font-medium transition-colors"
             style={{ border: "1px solid var(--color-kraft)", color: "var(--color-pencil)" }}
           >
             Cancel
@@ -342,7 +419,7 @@ export function NewBoxForm({
           <button
             type="submit"
             data-testid="save-box-btn"
-            disabled={saving || (mode === "qr" && !scannedQr)}
+            disabled={!canSubmit}
             className="flex-1 rounded-xl px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
             style={{ background: "var(--color-freight)" }}
           >
@@ -355,6 +432,20 @@ export function NewBoxForm({
                 {photos.length > 0 ? "Uploading…" : "Saving…"}
               </>
             ) : "Save box"}
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() => handleSubmitInternal(true)}
+            className="rounded-xl px-4 py-3 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center gap-2"
+            style={{ border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
+          >
+            {saving ? (
+              <svg className="spin w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" opacity="0.9"/>
+                <path d="M12 2a10 10 0 0 0-10 10" strokeLinecap="round" opacity="0.3"/>
+              </svg>
+            ) : "+ Add another"}
           </button>
         </div>
       </form>

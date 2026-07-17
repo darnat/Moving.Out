@@ -1,11 +1,17 @@
 import { auth } from "@/lib/auth";
 import { Nav } from "@/app/components/Nav";
 import { GridClient } from "./GridClient";
+import { GridErrorBoundary } from "./GridErrorBoundary";
 import { getCachedGridBoxes, getCachedStorageUnit, getCachedFurnitureItems } from "@/lib/data";
 
-export default async function GridPage() {
+export default async function GridPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ focus?: string }>;
+}) {
   const session = await auth();
   const userId = session!.user!.id!;
+  const { focus } = await searchParams;
 
   const [boxes, storageUnit, furnitureItems] = await Promise.all([
     getCachedGridBoxes(userId),
@@ -30,7 +36,16 @@ export default async function GridPage() {
             {unit.widthCells} × {unit.depthCells} cells
           </p>
         </div>
-        <GridClient boxes={boxes} furnitureItems={furnitureItems} widthCells={unit.widthCells} depthCells={unit.depthCells} heightCells={unit.heightCells} />
+        <GridErrorBoundary>
+          <GridClient
+            boxes={boxes}
+            furnitureItems={furnitureItems}
+            widthCells={unit.widthCells}
+            depthCells={unit.depthCells}
+            heightCells={unit.heightCells}
+            focusBoxId={focus}
+          />
+        </GridErrorBoundary>
       </main>
     </div>
   );

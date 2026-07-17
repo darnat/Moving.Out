@@ -2,8 +2,10 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Box, Room, BoxSize, Item, Photo } from "@/app/generated/prisma/client";
 import { addItem, removeItem, deleteBox, setRetrieved, addPhoto, removePhoto, updateBoxRoom } from "@/lib/actions/boxes";
+import { PhotoGallery } from "@/app/components/PhotoGallery";
 
 type BoxWithRelations = Box & {
   room: Room;
@@ -24,11 +26,15 @@ function Spinner() {
 export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; rooms: Room[]; photoUrls: Record<string, string> }) {
   const router = useRouter();
   const [itemInput, setItemInput] = useState("");
-  const [loading, setLoading] = useState<string | null>(null); // which action is in-flight
+  const [loading, setLoading] = useState<string | null>(null);
   const [editingRoom, setEditingRoom] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [gallery, setGallery] = useState<{ index: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const busy = loading !== null;
+  const orderedUrls = box.photos.map((p) => photoUrls[p.id]);
 
   async function run(key: string, fn: () => Promise<void>) {
     setLoading(key);
@@ -79,18 +85,29 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
     });
   }
 
-  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || busy) return;
+  async function handlePhotoFile(file: File) {
+    if (busy) return;
+    setPhotoError(null);
     await run("upload", async () => {
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (!res.ok) {
+        setPhotoError("Upload failed — please try again");
+        return;
+      }
       const { url } = await res.json();
       await addPhoto(box.id, url);
       router.refresh();
     });
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await handlePhotoFile(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
   }
 
   async function handleRemovePhoto(photoId: string) {
@@ -103,6 +120,14 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
 
   return (
     <div className="space-y-6">
+      {gallery !== null && (
+        <PhotoGallery
+          urls={orderedUrls}
+          initialIndex={gallery.index}
+          onClose={() => setGallery(null)}
+        />
+      )}
+
       {/* Box header */}
       <div
         className="rounded-3xl p-5 space-y-3 glass"
@@ -167,17 +192,26 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
           )}
         </div>
 
-        {box.gridCol !== null && (
-          <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "var(--color-freight-tint)" }}>
-            <svg className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--color-freight)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span className="text-xs font-medium" style={{ color: "var(--color-freight)" }}>
-              Col {box.gridCol} · Row {box.gridRow} · Level {Math.round(box.stackLevel!)}
-            </span>
+        {box.gridCol !== null ? (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-lg px-3 py-2 flex-1" style={{ background: "var(--color-freight-tint)" }}>
+              <svg className="w-3.5 h-3.5 shrink-0" style={{ color: "var(--color-freight)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span className="text-xs font-medium" style={{ color: "var(--color-freight)" }}>
+                Col {box.gridCol} · Row {box.gridRow} · Level {Math.round(box.stackLevel!)}
+              </span>
+            </div>
+            <Link
+              href={`/grid?focus=${box.id}`}
+              className="rounded-lg px-3 py-2 text-xs font-medium"
+              style={{ background: "var(--color-freight)", color: "#fff" }}
+            >
+              View on map
+            </Link>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Items */}
@@ -243,28 +277,54 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
           <h2 className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>
             Photos — {box.photos.length} photo{box.photos.length !== 1 ? "s" : ""}
           </h2>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={busy}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium flex items-center gap-1.5"
-            style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
-          >
-            {loading === "upload" ? <><Spinner /> Uploading…</> : "+ Add photo"}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={busy}
+              title="Take photo"
+              className="rounded-lg px-2.5 py-1.5 text-xs font-medium flex items-center gap-1"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={busy}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium flex items-center gap-1.5"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
+            >
+              {loading === "upload" ? <><Spinner /> Uploading…</> : "+ Gallery"}
+            </button>
+          </div>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
         </div>
+
+        {photoError && (
+          <p className="text-xs px-1" style={{ color: "var(--color-freight)" }}>{photoError}</p>
+        )}
 
         {box.photos.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
-            {box.photos.map((photo) => (
+            {box.photos.map((photo, photoIndex) => (
               <div key={photo.id} className="relative group aspect-square">
-                <img
-                  src={photoUrls[photo.id]}
-                  alt=""
-                  className="w-full h-full object-cover rounded-xl"
-                  style={{ border: "1px solid var(--color-kraft)" }}
-                />
+                <button
+                  type="button"
+                  onClick={() => setGallery({ index: photoIndex })}
+                  className="w-full h-full"
+                >
+                  <img
+                    src={photoUrls[photo.id]}
+                    alt=""
+                    className="w-full h-full object-cover rounded-xl"
+                    style={{ border: "1px solid var(--color-kraft)" }}
+                  />
+                </button>
                 <button
                   type="button"
                   onClick={() => handleRemovePhoto(photo.id)}
