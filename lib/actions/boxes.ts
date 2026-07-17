@@ -10,9 +10,28 @@ export async function createBox(formData: FormData) {
   const labelNumber = formData.get("labelNumber") as string;
   const qrCode = (formData.get("qrCode") as string) || null;
   const roomId = formData.get("roomId") as string;
-  const boxSizeId = formData.get("boxSizeId") as string;
   const itemsJson = formData.get("items") as string;
   const items: string[] = itemsJson ? JSON.parse(itemsJson) : [];
+
+  let boxSizeId = formData.get("boxSizeId") as string;
+
+  if (boxSizeId === "custom") {
+    const w = parseInt(formData.get("customW") as string, 10);
+    const d = parseInt(formData.get("customD") as string, 10);
+    const h = parseInt(formData.get("customH") as string, 10);
+    const oneOff = await prisma.boxSize.create({
+      data: {
+        userId,
+        name: `${w}"×${d}"×${h}"`,
+        widthIn: w, depthIn: d, heightIn: h,
+        widthCells: Math.max(1, Math.round(w / 12)),
+        depthCells: Math.max(1, Math.round(d / 12)),
+        heightCells: Math.max(1, Math.round(h / 12)),
+        isOneOff: true,
+      },
+    });
+    boxSizeId = oneOff.id;
+  }
 
   const box = await prisma.box.create({
     data: {

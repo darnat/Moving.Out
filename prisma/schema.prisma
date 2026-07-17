@@ -66,6 +66,7 @@ model BoxSize {
   widthCells  Int
   depthCells  Int
   heightCells Int
+  isOneOff    Boolean @default(false)
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   boxes       Box[]
 }

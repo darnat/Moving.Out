@@ -25,6 +25,7 @@ export function NewBoxForm({
   const [items, setItems] = useState<string[]>([]);
   const [itemInput, setItemInput] = useState("");
   const [scannedQr, setScannedQr] = useState<string | null>(initialQr ?? null);
+  const [sizeId, setSizeId] = useState("");
   const [showScanner, setShowScanner] = useState(false);
   const [photos, setPhotos] = useState<PhotoEntry[]>([]);
   const [saving, setSaving] = useState(false);
@@ -82,6 +83,7 @@ export function NewBoxForm({
     photos.forEach((p) => URL.revokeObjectURL(p.preview));
     setPhotos([]);
     setFailedPhotos(0);
+    setSizeId("");
     formRef.current?.reset();
     /* Re-apply mode so the UI updates correctly */
     setMode("manual");
@@ -264,14 +266,46 @@ export function NewBoxForm({
               name="boxSizeId"
               data-testid="size-select"
               required
+              value={sizeId}
+              onChange={(e) => setSizeId(e.target.value)}
               className="w-full rounded-xl px-4 py-3 text-sm"
               style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
             >
               <option value="">Select</option>
               {boxSizes.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              <option value="custom">Custom size…</option>
             </select>
           </div>
         </div>
+
+        {/* Custom size dimensions */}
+        {sizeId === "custom" && (
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium uppercase tracking-wider" style={{ color: "var(--color-pencil)" }}>
+              Dimensions (inches)
+            </label>
+            <div className="flex items-center gap-2">
+              {(["customW", "customD", "customH"] as const).map((field, i) => (
+                <div key={field} className="flex items-center gap-1.5 flex-1">
+                  <span className="text-xs shrink-0" style={{ color: "var(--color-pencil)" }}>
+                    {["W", "D", "H"][i]}
+                  </span>
+                  <input
+                    type="number"
+                    name={field}
+                    required={sizeId === "custom"}
+                    min={1}
+                    max={999}
+                    placeholder="—"
+                    className="w-full rounded-xl px-3 py-3 text-sm text-center label-number"
+                    style={{ background: "var(--color-surface)", border: "1px solid var(--color-kraft)", color: "var(--color-ink)" }}
+                  />
+                  <span className="text-xs shrink-0" style={{ color: "var(--color-pencil)" }}>"</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Contents */}
         <div className="space-y-2">

@@ -58,7 +58,7 @@ export const getCachedBox = (id: string, userId: string) =>
 export const getCachedBoxSizes = (userId: string) =>
   unstable_cache(
     () =>
-      prisma.boxSize.findMany({ where: { userId }, orderBy: { name: "asc" } }),
+      prisma.boxSize.findMany({ where: { userId, isOneOff: false }, orderBy: { name: "asc" } }),
     ["box-sizes", userId],
     { tags: [userTag(userId)] }
   )();

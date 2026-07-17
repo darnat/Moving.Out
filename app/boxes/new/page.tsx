@@ -14,7 +14,7 @@ export default async function NewBoxPage({
   const [{ qr }, rooms, boxSizes] = await Promise.all([
     searchParams,
     prisma.room.findMany({ where: { userId }, orderBy: { name: "asc" } }),
-    prisma.boxSize.findMany({ where: { userId }, orderBy: { name: "asc" } }),
+    prisma.boxSize.findMany({ where: { userId, isOneOff: false }, orderBy: { name: "asc" } }),
   ]);
 
   return (
