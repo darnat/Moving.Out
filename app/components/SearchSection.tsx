@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useDeferredValue } from "react";
+import { useState, useDeferredValue, useMemo } from "react";
 import Link from "next/link";
+import Fuse from "fuse.js";
 import { Box, Room, Item, BoxSize } from "@/app/generated/prisma/client";
 
 type BoxWithRelations = Box & {
@@ -21,16 +22,51 @@ export function SearchSection({
   const [roomFilter, setRoomFilter] = useState("");
   const deferredQuery = useDeferredValue(query);
 
-  const results = boxes.flatMap((box) => {
-    const matchingItems = box.items.filter((item) =>
-      item.name.toLowerCase().includes(deferredQuery.toLowerCase())
-    );
-    if (deferredQuery && matchingItems.length === 0) return [];
-    if (roomFilter && box.room.id !== roomFilter) return [];
-    return [{ box, matchingItems }];
-  });
+  /* Fuse instance — rebuilt only when the boxes list changes */
+  const fuse = useMemo(
+    () =>
+      new Fuse(boxes, {
+        keys: [
+          { name: "labelNumber", weight: 2 },   // box label is most important
+          { name: "items.name",  weight: 1 },   // contents
+          { name: "room.name",   weight: 0.5 }, // room
+        ],
+        threshold: 0.35,      // 0 = exact, 1 = match anything
+        ignoreLocation: true, // match anywhere in the string, not just start
+        includeMatches: true,
+        minMatchCharLength: 2,
+      }),
+    [boxes],
+  );
 
-  const hasQuery = deferredQuery.length > 0 || roomFilter.length > 0;
+  const { results, hasQuery } = useMemo(() => {
+    const q = deferredQuery.trim();
+    const hasQuery = q.length > 0 || roomFilter.length > 0;
+
+    let results: { box: BoxWithRelations; matchingItems: Item[] }[];
+
+    if (q.length === 0) {
+      /* No text query — show all (room filter still applies) */
+      results = boxes
+        .filter((b) => !roomFilter || b.room.id === roomFilter)
+        .map((box) => ({ box, matchingItems: [] }));
+    } else {
+      results = fuse
+        .search(q)
+        .filter((r) => !roomFilter || r.item.room.id === roomFilter)
+        .map((r) => {
+          /* Extract which item names matched so we can highlight them */
+          const itemMatches =
+            r.matches?.filter((m) => m.key === "items.name") ?? [];
+          const matchingItems = itemMatches
+            .map((m) => r.item.items[m.refIndex!])
+            .filter(Boolean);
+          return { box: r.item, matchingItems };
+        });
+    }
+
+    return { results, hasQuery };
+  }, [fuse, deferredQuery, roomFilter, boxes]);
 
   return (
     <div className="space-y-4">
@@ -98,7 +134,7 @@ export function SearchSection({
                 key={box.id}
                 box={box}
                 matchingItems={deferredQuery ? matchingItems : []}
-                showItems={!!deferredQuery}
+                showItems={deferredQuery.length > 0}
               />
             ))
           )
