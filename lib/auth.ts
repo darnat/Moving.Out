@@ -4,7 +4,14 @@ import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import { seedUserDefaults } from "./seed";
 
-const allowedEmail = process.env.ALLOWED_EMAIL?.toLowerCase() ?? "";
+/* Comma-separated allowlist: ALLOWED_EMAILS=a@gmail.com,b@gmail.com
+   Falls back to the legacy single-value ALLOWED_EMAIL var. */
+const allowedEmails = new Set(
+  (process.env.ALLOWED_EMAILS ?? process.env.ALLOWED_EMAIL ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
 
 const testProvider =
   process.env.NODE_ENV !== "production" &&
@@ -17,7 +24,7 @@ const testProvider =
           async authorize(credentials) {
             if (!credentials?.email) return null;
             const email = String(credentials.email).toLowerCase();
-            if (email !== allowedEmail) return null;
+            if (!allowedEmails.has(email)) return null;
             const user = await prisma.user.upsert({
               where: { email },
               update: {},
@@ -41,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
-      return user.email.toLowerCase() === allowedEmail;
+      return allowedEmails.has(user.email.toLowerCase());
     },
     async jwt({ token, account }) {
       // account is only present on the first sign-in
