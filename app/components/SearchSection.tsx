@@ -38,7 +38,7 @@ export function SearchSection({
       <div className="flex gap-2">
         <div className="relative flex-1">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none z-10"
             style={{ color: "var(--color-pencil)" }}
             fill="none"
             viewBox="0 0 24 24"
