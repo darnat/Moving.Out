@@ -56,16 +56,18 @@ function IsometricCamera({ wc, dc, hc }: { wc: number; dc: number; hc: number })
   useEffect(() => {
     const D = Math.max(wc + dc, hc + 4) * 12;
     camera.position.set(wc / 2 + D, D, dc / 2 + D);
-    camera.lookAt(wc / 2, hc * 0.35, dc / 2);
+    /* lookAt y = hc/2 centres the scene in screen space (proved by isometric
+       projection math: the screen-up midpoint of the bounding box is at y=hc/2) */
+    camera.lookAt(wc / 2, hc / 2, dc / 2);
     camera.up.set(0, 1, 0);
     camera.updateMatrixWorld();
-    /* World extents visible from isometric angle (true isometric math):
-       screen width  ≈ (wc + dc) / √2
-       screen height ≈ (wc + dc + 2*hc) / √6  */
-    const worldW = (wc + dc) / Math.SQRT2 + 2.5;
-    const worldH = (wc + dc + 2 * (hc + 1)) / Math.sqrt(6) + 2.5;
+    /* Exact screen-space extents (true isometric, camera at (1,1,1) direction):
+       screen width  = (wc + dc) / √2
+       screen height = (wc + dc + 2·hc) / √6  */
+    const worldW = (wc + dc) / Math.SQRT2;
+    const worldH = (wc + dc + 2 * hc) / Math.sqrt(6);
     (camera as THREE.OrthographicCamera).zoom = Math.max(
-      Math.min(size.width / worldW, size.height / worldH) * 0.82,
+      Math.min(size.width / worldW, size.height / worldH) * 0.92,
       1,
     );
     camera.updateProjectionMatrix();
