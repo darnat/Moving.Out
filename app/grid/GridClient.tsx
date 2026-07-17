@@ -337,7 +337,7 @@ export function GridClient({ boxes, furnitureItems, widthCells, depthCells, heig
       />
 
       {/* ── Sidebar ── */}
-      <div className="w-full lg:w-60 space-y-4 shrink-0">
+      <div className="w-full lg:flex-1 lg:min-w-0 space-y-4">
         {mode==="place" && selectedBox && (
           <div className="rounded-2xl px-3 py-2 text-xs leading-relaxed glass-orange"
                style={{background:"var(--color-freight-tint)",

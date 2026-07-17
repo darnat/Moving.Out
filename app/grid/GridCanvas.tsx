@@ -456,7 +456,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
 
   return (
     <div
-      className="flex-1 min-w-0 overflow-hidden rounded-2xl glass"
+      className="w-[90%] lg:w-4/5 min-w-0 overflow-hidden rounded-2xl glass"
       style={{ border: "1px solid var(--color-kraft)", height: "min(76vh, 660px)", minHeight: 380 }}
     >
       <Canvas
