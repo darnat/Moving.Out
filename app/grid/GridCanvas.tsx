@@ -111,9 +111,11 @@ function IsometricCamera({
 /* ── Pan handler — drag anywhere to move the camera ── */
 function PanController({
   panRef,
+  didPanRef,
   enabled,
 }: {
   panRef: React.MutableRefObject<{ x: number; z: number }>;
+  didPanRef: React.MutableRefObject<boolean>;
   enabled: boolean;
 }) {
   const { camera, gl } = useThree();
@@ -138,10 +140,10 @@ function PanController({
       const dx = e.clientX - lastX;
       const dy = e.clientY - lastY;
       if (!moved && Math.hypot(dx, dy) < 4) return;
+      if (!moved) didPanRef.current = true; // mark pan started
       moved = true;
       lastX = e.clientX; lastY = e.clientY;
 
-      /* Convert screen-space drag to world-space translation via camera axes */
       const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
       const up    = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
       const cam   = camera as THREE.OrthographicCamera;
@@ -157,7 +159,11 @@ function PanController({
       panRef.current.z += delta.z;
     }
 
-    function onUp() { active = false; }
+    function onUp() {
+      active = false;
+      /* Reset after a tick — onClick fires just after pointerup and must still see true */
+      setTimeout(() => { didPanRef.current = false; }, 50);
+    }
 
     canvas.addEventListener("pointerdown", onDown);
     canvas.addEventListener("pointermove", onMove);
@@ -167,7 +173,7 @@ function PanController({
       canvas.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup",   onUp);
     };
-  }, [camera, gl, panRef]);
+  }, [camera, gl, panRef, didPanRef]);
 
   return null;
 }
@@ -300,13 +306,14 @@ function FloorInteraction({ wc, dc, onMove, onClick }: {
 }
 
 /* ── Box mesh — click to select only, no drag gesture ── */
-function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1, roomColor }: {
+function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1, roomColor, didPanRef }: {
   box: BoxWithRelations;
   isSelected: boolean;
   onClick?: () => void;
   inPlaceMode: boolean;
   opacity?: number;
   roomColor: string;
+  didPanRef?: React.MutableRefObject<boolean>;
 }) {
   const { gridCol: c, gridRow: r, stackLevel: sl, boxSize, labelNumber } = box;
   const col = c ?? 0; const row = r ?? 0;
@@ -318,7 +325,7 @@ function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1, roomCol
   return (
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
       <mesh
-        onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onClick?.(); }}
+        onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); if (!didPanRef?.current) onClick?.(); }}
       >
         <boxGeometry args={[wc, hc, dc]} />
         <meshStandardMaterial color={baseColor} roughness={0.85} metalness={0} transparent={opacity < 1} opacity={opacity} />
@@ -344,12 +351,13 @@ function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1, roomCol
 }
 
 /* ── Furniture mesh — click to select only, no drag gesture ── */
-function FurnitureMesh3D({ item, isSelected, onClick, inPlaceMode, opacity = 1 }: {
+function FurnitureMesh3D({ item, isSelected, onClick, inPlaceMode, opacity = 1, didPanRef }: {
   item: FurnitureItem;
   isSelected: boolean;
   onClick?: () => void;
   inPlaceMode: boolean;
   opacity?: number;
+  didPanRef?: React.MutableRefObject<boolean>;
 }) {
   const col  = item.gridCol ?? 0; const row = item.gridRow ?? 0;
   const wc   = item.widthIn / 12; const dc = item.depthIn / 12; const hc = item.heightIn / 12;
@@ -366,7 +374,7 @@ function FurnitureMesh3D({ item, isSelected, onClick, inPlaceMode, opacity = 1 }
         args={[wc, hc, dc]}
         radius={r}
         smoothness={4}
-        onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onClick?.(); }}
+        onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); if (!didPanRef?.current) onClick?.(); }}
       >
         <meshStandardMaterial color={col3} roughness={0.72} metalness={0} transparent={opacity < 1} opacity={opacity} />
       </RoundedBox>
@@ -485,7 +493,9 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
   } = props;
 
   /* Shared pan offset — mutated directly by PanController, read by IsometricCamera */
-  const panRef = useRef({ x: 0, z: 0 });
+  const panRef    = useRef({ x: 0, z: 0 });
+  /* True while a pan gesture is in progress — suppresses mesh onClick */
+  const didPanRef = useRef(false);
 
   const sortedItems = useMemo(() => {
     type SI = { kind: "box"; box: BoxWithRelations } | { kind: "fi"; fi: FurnitureItem };
@@ -524,8 +534,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
         <IsometricCamera wc={wc} dc={dc} hc={hc} zoomFactor={zoomFactor} panRef={panRef} />
         <RaycastSetup raycastRef={raycastRef} />
 
-        {/* Pan: enabled whenever no overlay-drag is in progress */}
-        <PanController panRef={panRef} enabled={!isDragging} />
+        <PanController panRef={panRef} didPanRef={didPanRef} enabled={!isDragging} />
 
         <ambientLight color="#fdf4e8" intensity={0.55} />
         <directionalLight color="#ffffff" intensity={1.65} position={[1, 2.5, 0.5]} />
@@ -544,6 +553,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
                 onClick={() => onSelectBox(item.box)}
                 inPlaceMode={mode === "place"}
                 roomColor={getRoomColor(item.box.roomId, roomIndex)}
+                didPanRef={didPanRef}
               />
             : <FurnitureMesh3D
                 key={item.fi.id}
@@ -551,6 +561,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
                 isSelected={infoFurniture?.id === item.fi.id}
                 onClick={() => onSelectFurniture(item.fi)}
                 inPlaceMode={mode === "place"}
+                didPanRef={didPanRef}
               />
         )}
 
