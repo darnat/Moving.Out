@@ -1,9 +1,12 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { QrScanner } from "./QrScanner";
+import { findBoxByQrCode } from "@/lib/actions/boxes";
 
-const tabs = [
+const navTabs = [
   {
     href: "/",
     label: "Boxes",
@@ -38,52 +41,75 @@ const tabs = [
       </svg>
     ),
   },
-  {
-    href: "/settings",
-    label: "Settings",
-    icon: (
-      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/>
-      </svg>
-    ),
-  },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [showScanner, setShowScanner] = useState(false);
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/" || pathname.startsWith("/boxes");
     return pathname === href || pathname.startsWith(href + "/");
   }
 
+  const handleScan = useCallback(async (text: string) => {
+    setShowScanner(false);
+    const boxId = await findBoxByQrCode(text);
+    if (boxId) {
+      router.push(`/boxes/${boxId}`);
+    } else {
+      router.push(`/boxes/new?qr=${encodeURIComponent(text)}`);
+    }
+  }, [router]);
+
   return (
-    <nav
-      className="fixed bottom-0 inset-x-0 z-40 lg:hidden"
-      style={{
-        background: "rgba(6, 6, 8, 0.92)",
-        backdropFilter: "blur(28px) saturate(180%)",
-        WebkitBackdropFilter: "blur(28px) saturate(180%)",
-        borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
-    >
-      <div className="flex items-stretch">
-        {tabs.map((tab) => {
-          const active = isActive(tab.href);
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors"
-              style={{ color: active ? "var(--color-freight)" : "var(--color-pencil)" }}
-            >
-              {tab.icon}
-              <span className="text-[10px] font-medium leading-none">{tab.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+    <>
+      {showScanner && (
+        <QrScanner onScan={handleScan} onClose={() => setShowScanner(false)} />
+      )}
+
+      <nav
+        className="fixed bottom-0 inset-x-0 z-40 lg:hidden"
+        style={{
+          background: "rgba(6, 6, 8, 0.92)",
+          backdropFilter: "blur(28px) saturate(180%)",
+          WebkitBackdropFilter: "blur(28px) saturate(180%)",
+          borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
+        <div className="flex items-stretch">
+          {navTabs.map((tab) => {
+            const active = isActive(tab.href);
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 transition-colors"
+                style={{ color: active ? "var(--color-freight)" : "var(--color-pencil)" }}
+              >
+                {tab.icon}
+                <span className="text-[10px] font-medium leading-none">{tab.label}</span>
+              </Link>
+            );
+          })}
+
+          {/* QR scan — replaces Settings */}
+          <button
+            onClick={() => setShowScanner(true)}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 transition-colors"
+            style={{ color: "var(--color-pencil)" }}
+            aria-label="Scan QR code"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 18.75h.75v.75h-.75v-.75zM18.75 13.5h.75v.75h-.75v-.75zM18.75 18.75h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
+            </svg>
+            <span className="text-[10px] font-medium leading-none">Scan</span>
+          </button>
+        </div>
+      </nav>
+    </>
   );
 }

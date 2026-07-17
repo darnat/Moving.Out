@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { FloatingActions } from "./components/FloatingActions";
@@ -24,6 +24,10 @@ export const metadata: Metadata = {
   description: "Track your moving boxes and storage unit",
 };
 
+export const viewport: Viewport = {
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -34,7 +38,7 @@ export default function RootLayout({
       lang="en"
       className={`${spaceGrotesk.variable} ${dmSans.variable} ${jetbrainsMono.variable} h-full`}
     >
-      <body className="min-h-full flex flex-col isolate pb-16 lg:pb-0">
+      <body className="min-h-full flex flex-col isolate pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
         <div aria-hidden="true" className="bg-canvas fixed inset-0 -z-10 pointer-events-none" />
         {children}
         <FloatingActions />

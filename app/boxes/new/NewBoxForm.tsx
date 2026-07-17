@@ -9,15 +9,17 @@ import { QrScanner } from "@/app/components/QrScanner";
 export function NewBoxForm({
   rooms,
   boxSizes,
+  initialQr,
 }: {
   rooms: Room[];
   boxSizes: BoxSize[];
+  initialQr?: string;
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"manual" | "qr">("manual");
+  const [mode, setMode] = useState<"manual" | "qr">(initialQr ? "qr" : "manual");
   const [items, setItems] = useState<string[]>([]);
   const [itemInput, setItemInput] = useState("");
-  const [scannedQr, setScannedQr] = useState<string | null>(null);
+  const [scannedQr, setScannedQr] = useState<string | null>(initialQr ?? null);
   const [showScanner, setShowScanner] = useState(false);
 
   function addItem() {
