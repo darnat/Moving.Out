@@ -109,6 +109,12 @@ export async function updateBoxRoom(boxId: string, roomId: string) {
   updateTag(userTag(userId));
 }
 
+export async function updateBoxLabel(boxId: string, labelNumber: string) {
+  const userId = await requireUserId();
+  await prisma.box.updateMany({ where: { id: boxId, userId }, data: { labelNumber } });
+  updateTag(userTag(userId));
+}
+
 export async function setRetrieved(boxId: string, retrieved: boolean) {
   const userId = await requireUserId();
   await prisma.box.updateMany({

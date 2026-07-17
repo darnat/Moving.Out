@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Box, Room, BoxSize, Item, Photo } from "@/app/generated/prisma/client";
-import { addItem, removeItem, deleteBox, setRetrieved, addPhoto, removePhoto, updateBoxRoom } from "@/lib/actions/boxes";
+import { addItem, removeItem, deleteBox, setRetrieved, addPhoto, removePhoto, updateBoxRoom, updateBoxLabel } from "@/lib/actions/boxes";
 import { PhotoGallery } from "@/app/components/PhotoGallery";
 import { haptic } from "@/lib/haptic";
 
@@ -28,6 +28,8 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
   const router = useRouter();
   const [itemInput, setItemInput] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState(box.labelNumber);
   const [editingRoom, setEditingRoom] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [gallery, setGallery] = useState<{ index: number } | null>(null);
@@ -66,6 +68,16 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
     await run("delete", async () => {
       await deleteBox(box.id);
       router.push("/");
+    });
+  }
+
+  async function handleLabelSave() {
+    const trimmed = labelDraft.trim();
+    if (!trimmed || trimmed === box.labelNumber) { setEditingLabel(false); return; }
+    setEditingLabel(false);
+    await run("label", async () => {
+      await updateBoxLabel(box.id, trimmed);
+      router.refresh();
     });
   }
 
@@ -148,9 +160,34 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 18.75h.75v.75h-.75v-.75zM18.75 13.5h.75v.75h-.75v-.75zM18.75 18.75h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
                 </svg>
               )}
-              <h1 className="label-number font-bold text-2xl leading-none" style={{ color: "var(--color-ink)" }}>
-                {box.labelNumber}
-              </h1>
+              {editingLabel ? (
+                <input
+                  autoFocus
+                  value={labelDraft}
+                  onChange={(e) => setLabelDraft(e.target.value)}
+                  onBlur={handleLabelSave}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); handleLabelSave(); }
+                    if (e.key === "Escape") { setLabelDraft(box.labelNumber); setEditingLabel(false); }
+                  }}
+                  className="label-number font-bold text-2xl leading-none bg-transparent border-b outline-none min-w-0 w-40"
+                  style={{ color: "var(--color-ink)", borderColor: "var(--color-freight)" }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setLabelDraft(box.labelNumber); setEditingLabel(true); }}
+                  disabled={busy}
+                  className="flex items-center gap-1.5 group"
+                >
+                  <h1 className="label-number font-bold text-2xl leading-none" style={{ color: "var(--color-ink)" }}>
+                    {loading === "label" ? <Spinner /> : box.labelNumber}
+                  </h1>
+                  <svg className="w-3.5 h-3.5 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: "var(--color-pencil)" }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-1.5 pl-3">
               {editingRoom ? (

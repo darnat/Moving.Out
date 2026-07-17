@@ -89,13 +89,22 @@ export function FurnitureDetail({ item }: { item: FurnitureItem }) {
         className="rounded-3xl p-5 space-y-4 glass"
         style={{ border: "1px solid var(--color-kraft)" }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-4 h-4 rounded-full shrink-0" style={{ background: color }} />
-          <h1 className="font-display font-bold text-2xl leading-none" style={{ color: "var(--color-ink)" }}>
-            {item.name}
-          </h1>
+          <button
+            type="button"
+            onClick={() => document.getElementById("furniture-name-input")?.focus()}
+            className="flex items-center gap-1.5 min-w-0 group text-left"
+          >
+            <h1 className="font-display font-bold text-2xl leading-none truncate" style={{ color: "var(--color-ink)" }}>
+              {name || item.name}
+            </h1>
+            <svg className="w-3.5 h-3.5 shrink-0 opacity-0 group-hover:opacity-50 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: "var(--color-pencil)" }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
           {item.groupName && (
-            <span className="text-sm" style={{ color: "var(--color-pencil)" }}>({item.groupName})</span>
+            <span className="text-sm shrink-0" style={{ color: "var(--color-pencil)" }}>({item.groupName})</span>
           )}
         </div>
 
@@ -194,6 +203,7 @@ export function FurnitureDetail({ item }: { item: FurnitureItem }) {
         <div className="space-y-1.5">
           <label className="block text-xs" style={{ color: "var(--color-pencil)" }}>Name</label>
           <input
+            id="furniture-name-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
