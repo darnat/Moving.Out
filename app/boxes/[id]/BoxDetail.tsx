@@ -170,7 +170,8 @@ export function BoxDetail({ box, rooms, photoUrls }: { box: BoxWithRelations; ro
                     if (e.key === "Enter") { e.preventDefault(); handleLabelSave(); }
                     if (e.key === "Escape") { setLabelDraft(box.labelNumber); setEditingLabel(false); }
                   }}
-                  className="label-number font-bold text-2xl leading-none bg-transparent border-b outline-none min-w-0 w-40"
+                  size={Math.max(1, labelDraft.length)}
+                  className="label-number font-bold text-2xl leading-none bg-transparent border-b outline-none min-w-0"
                   style={{ color: "var(--color-ink)", borderColor: "var(--color-freight)" }}
                 />
               ) : (
