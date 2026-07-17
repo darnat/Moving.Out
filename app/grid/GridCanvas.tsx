@@ -187,11 +187,10 @@ function FloorInteraction({ wc, dc, onMove, onClick }: {
 }
 
 /* ── Single moving box ── */
-function BoxMesh3D({ box, isSelected, onClick, onPointerDown, inPlaceMode, opacity = 1 }: {
+function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1 }: {
   box: BoxWithRelations;
   isSelected: boolean;
   onClick?: () => void;
-  onPointerDown?: (e: PointerEvent) => void;
   inPlaceMode: boolean;
   opacity?: number;
 }) {
@@ -205,7 +204,6 @@ function BoxMesh3D({ box, isSelected, onClick, onPointerDown, inPlaceMode, opaci
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
       <mesh
         onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onClick?.(); }}
-        onPointerDown={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onPointerDown?.(e.nativeEvent); }}
       >
         <boxGeometry args={[wc, hc, dc]} />
         <meshStandardMaterial
@@ -237,11 +235,10 @@ function BoxMesh3D({ box, isSelected, onClick, onPointerDown, inPlaceMode, opaci
 }
 
 /* ── Single furniture item ── */
-function FurnitureMesh3D({ item, isSelected, onClick, onPointerDown, inPlaceMode, opacity = 1 }: {
+function FurnitureMesh3D({ item, isSelected, onClick, inPlaceMode, opacity = 1 }: {
   item: FurnitureItem;
   isSelected: boolean;
   onClick?: () => void;
-  onPointerDown?: (e: PointerEvent) => void;
   inPlaceMode: boolean;
   opacity?: number;
 }) {
@@ -262,7 +259,6 @@ function FurnitureMesh3D({ item, isSelected, onClick, onPointerDown, inPlaceMode
         radius={r}
         smoothness={4}
         onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onClick?.(); }}
-        onPointerDown={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onPointerDown?.(e.nativeEvent); }}
       >
         <meshStandardMaterial
           color={col3}
@@ -457,7 +453,6 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
                 box={item.box}
                 isSelected={infoBox?.id === item.box.id}
                 onClick={() => onSelectBox(item.box)}
-                onPointerDown={(e) => onDragBoxStart(e, item.box)}
                 inPlaceMode={mode === "place"}
               />
             : <FurnitureMesh3D
@@ -465,7 +460,6 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
                 item={item.fi}
                 isSelected={infoFurniture?.id === item.fi.id}
                 onClick={() => onSelectFurniture(item.fi)}
-                onPointerDown={(e) => onDragFurnitureStart(e, item.fi)}
                 inPlaceMode={mode === "place"}
               />
         )}
