@@ -26,10 +26,7 @@ export function FloatingActions() {
       )}
 
       <div
-        className="fixed right-4 z-50 lg:right-6 lg:bottom-6"
-        /* On mobile sit above the bottom nav (4.5rem nav height + safe area + 1rem gap).
-           On lg+ the nav is hidden so a simple 1.5rem from bottom is enough. */
-        style={{ bottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px) + 1rem)" }}
+        className="fixed right-4 z-50 lg:right-6 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px)+1rem)] lg:bottom-6"
       >
         <button
           onClick={() => setShowScanner(true)}
