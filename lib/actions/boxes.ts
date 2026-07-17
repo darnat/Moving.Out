@@ -1,6 +1,6 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { updateTag, revalidatePath } from "next/cache";
 import { userTag } from "@/lib/data";
 import { requireUserId } from "@/lib/actions/auth";
 import { prisma } from "@/lib/prisma";
@@ -113,6 +113,7 @@ export async function updateBoxIcon(boxId: string, icon: string | null) {
   const userId = await requireUserId();
   await prisma.box.updateMany({ where: { id: boxId, userId }, data: { icon } });
   updateTag(userTag(userId));
+  revalidatePath("/boxes");
 }
 
 export async function updateBoxLabel(boxId: string, labelNumber: string) {
