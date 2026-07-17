@@ -193,6 +193,9 @@ function BoxCard({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 18.75h.75v.75h-.75v-.75zM18.75 13.5h.75v.75h-.75v-.75zM18.75 18.75h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
               </svg>
             )}
+            {box.icon && (
+              <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{box.icon}</span>
+            )}
             <span className="label-number font-semibold text-sm truncate" style={{ color: "var(--color-ink)" }}>
               {box.labelNumber}
             </span>
