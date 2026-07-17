@@ -187,10 +187,11 @@ function FloorInteraction({ wc, dc, onMove, onClick }: {
 }
 
 /* ── Single moving box ── */
-function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1 }: {
+function BoxMesh3D({ box, isSelected, onClick, onDragStart, inPlaceMode, opacity = 1 }: {
   box: BoxWithRelations;
   isSelected: boolean;
   onClick?: () => void;
+  onDragStart?: (e: PointerEvent, box: BoxWithRelations) => void;
   inPlaceMode: boolean;
   opacity?: number;
 }) {
@@ -204,6 +205,23 @@ function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1 }: {
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
       <mesh
         onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onClick?.(); }}
+        onPointerDown={inPlaceMode ? undefined : (e) => {
+          e.stopPropagation();
+          const native = e.nativeEvent;
+          const x0 = native.clientX; const y0 = native.clientY;
+          function onMove(ev: PointerEvent) {
+            if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 5) {
+              cleanup(); onDragStart?.(native, box);
+            }
+          }
+          function onUp() { cleanup(); }
+          function cleanup() {
+            document.removeEventListener("pointermove", onMove, true);
+            document.removeEventListener("pointerup",   onUp,   true);
+          }
+          document.addEventListener("pointermove", onMove, true);
+          document.addEventListener("pointerup",   onUp,   true);
+        }}
       >
         <boxGeometry args={[wc, hc, dc]} />
         <meshStandardMaterial
@@ -235,10 +253,11 @@ function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1 }: {
 }
 
 /* ── Single furniture item ── */
-function FurnitureMesh3D({ item, isSelected, onClick, inPlaceMode, opacity = 1 }: {
+function FurnitureMesh3D({ item, isSelected, onClick, onDragStart, inPlaceMode, opacity = 1 }: {
   item: FurnitureItem;
   isSelected: boolean;
   onClick?: () => void;
+  onDragStart?: (e: PointerEvent, item: FurnitureItem) => void;
   inPlaceMode: boolean;
   opacity?: number;
 }) {
@@ -259,6 +278,23 @@ function FurnitureMesh3D({ item, isSelected, onClick, inPlaceMode, opacity = 1 }
         radius={r}
         smoothness={4}
         onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onClick?.(); }}
+        onPointerDown={inPlaceMode ? undefined : (e) => {
+          e.stopPropagation();
+          const native = e.nativeEvent;
+          const x0 = native.clientX; const y0 = native.clientY;
+          function onMove(ev: PointerEvent) {
+            if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 5) {
+              cleanup(); onDragStart?.(native, item);
+            }
+          }
+          function onUp() { cleanup(); }
+          function cleanup() {
+            document.removeEventListener("pointermove", onMove, true);
+            document.removeEventListener("pointerup",   onUp,   true);
+          }
+          document.addEventListener("pointermove", onMove, true);
+          document.addEventListener("pointerup",   onUp,   true);
+        }}
       >
         <meshStandardMaterial
           color={col3}
@@ -453,6 +489,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
                 box={item.box}
                 isSelected={infoBox?.id === item.box.id}
                 onClick={() => onSelectBox(item.box)}
+                onDragStart={onDragBoxStart}
                 inPlaceMode={mode === "place"}
               />
             : <FurnitureMesh3D
@@ -460,6 +497,7 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
                 item={item.fi}
                 isSelected={infoFurniture?.id === item.fi.id}
                 onClick={() => onSelectFurniture(item.fi)}
+                onDragStart={onDragFurnitureStart}
                 inPlaceMode={mode === "place"}
               />
         )}
