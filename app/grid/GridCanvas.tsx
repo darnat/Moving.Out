@@ -8,7 +8,7 @@ import type { Box, BoxSize, Room, FurnitureItem } from "@/app/generated/prisma/c
 
 type BoxWithRelations = Box & { boxSize: BoxSize; room: Room };
 
-/* ── Dimension helpers (inches → grid cells) ── */
+/* ── Dimension helpers ── */
 function bwc(bs: BoxSize) { return (bs.widthIn  || bs.widthCells  * 12) / 12; }
 function bdc(bs: BoxSize) { return (bs.depthIn  || bs.depthCells  * 12) / 12; }
 function bhc(bs: BoxSize) { return (bs.heightIn || bs.heightCells * 12) / 12; }
@@ -21,25 +21,16 @@ function shade(hex: string, factor: number): string {
   return `rgb(${clamp(r * factor)} ${clamp(g * factor)} ${clamp(b * factor)})`;
 }
 
-/* Warm palette — earthy tones that read well in isometric 3D */
 const ROOM_PALETTE = [
-  "#C89050", // kraft cardboard
-  "#D45A45", // terracotta
-  "#5A9E6A", // sage green
-  "#5578C0", // denim blue
-  "#9A55C0", // plum
-  "#46B0B8", // teal
-  "#D49830", // amber
-  "#D06858", // coral
+  "#C89050", "#D45A45", "#5A9E6A", "#5578C0",
+  "#9A55C0", "#46B0B8", "#D49830", "#D06858",
 ];
-
 function getRoomColor(roomId: string, roomIndex: Map<string, number>): string {
   const idx = roomIndex.get(roomId) ?? 0;
   return ROOM_PALETTE[idx % ROOM_PALETTE.length];
 }
 
-/* ── Props type ── */
-/* ── Pulsing highlight ring for the focused box ── */
+/* ── Pulsing highlight ring ── */
 function FocusPulse({ box }: { box: BoxWithRelations }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const wc = bwc(box.boxSize); const dc = bdc(box.boxSize); const hc = bhc(box.boxSize);
@@ -48,10 +39,8 @@ function FocusPulse({ box }: { box: BoxWithRelations }) {
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
     const t = clock.getElapsedTime() % 1.1;
-    const s = 1 + t * 0.22;
-    meshRef.current.scale.setScalar(s);
-    const mat = meshRef.current.material as THREE.MeshBasicMaterial;
-    mat.opacity = Math.max(0, 0.65 * (1 - t / 1.1));
+    meshRef.current.scale.setScalar(1 + t * 0.22);
+    (meshRef.current.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.65 * (1 - t / 1.1));
   });
 
   return (
@@ -93,13 +82,19 @@ export interface GridCanvas3DProps {
   onUnplaceFurniture: () => void;
 }
 
-/* ── Isometric orthographic camera setup ── */
-function IsometricCamera({ wc, dc, hc, zoomFactor }: { wc: number; dc: number; hc: number; zoomFactor: number }) {
+/* ── Isometric camera — applies zoom and persists pan offset across re-renders ── */
+function IsometricCamera({
+  wc, dc, hc, zoomFactor, panRef,
+}: {
+  wc: number; dc: number; hc: number; zoomFactor: number;
+  panRef: React.MutableRefObject<{ x: number; z: number }>;
+}) {
   const { camera, size } = useThree();
   useEffect(() => {
+    const pan = panRef.current;
     const D = Math.max(wc + dc, hc + 4) * 12;
-    camera.position.set(wc / 2 + D, D, dc / 2 + D);
-    camera.lookAt(wc / 2, hc / 2, dc / 2);
+    camera.position.set(wc / 2 + D + pan.x, D, dc / 2 + D + pan.z);
+    camera.lookAt(wc / 2 + pan.x, hc / 2, dc / 2 + pan.z);
     camera.up.set(0, 1, 0);
     camera.updateMatrixWorld();
     const worldW = (wc + dc) / Math.SQRT2;
@@ -109,11 +104,75 @@ function IsometricCamera({ wc, dc, hc, zoomFactor }: { wc: number; dc: number; h
       1,
     ) * zoomFactor;
     camera.updateProjectionMatrix();
-  }, [camera, size, wc, dc, hc, zoomFactor]);
+  }, [camera, size, wc, dc, hc, zoomFactor, panRef]);
   return null;
 }
 
-/* ── Expose floor-raycast to parent (for drag handlers) ── */
+/* ── Pan handler — drag anywhere to move the camera ── */
+function PanController({
+  panRef,
+  enabled,
+}: {
+  panRef: React.MutableRefObject<{ x: number; z: number }>;
+  enabled: boolean;
+}) {
+  const { camera, gl } = useThree();
+  const enabledRef = useRef(enabled);
+  useEffect(() => { enabledRef.current = enabled; }, [enabled]);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    let active = false;
+    let moved  = false;
+    let lastX  = 0;
+    let lastY  = 0;
+
+    function onDown(e: PointerEvent) {
+      if (!enabledRef.current) return;
+      active = true; moved = false;
+      lastX = e.clientX; lastY = e.clientY;
+    }
+
+    function onMove(e: PointerEvent) {
+      if (!active || !enabledRef.current) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      if (!moved && Math.hypot(dx, dy) < 4) return;
+      moved = true;
+      lastX = e.clientX; lastY = e.clientY;
+
+      /* Convert screen-space drag to world-space translation via camera axes */
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+      const up    = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+      const cam   = camera as THREE.OrthographicCamera;
+      const wPx   = (cam.right - cam.left)   / canvas.clientWidth  / cam.zoom;
+      const hPx   = (cam.top   - cam.bottom) / canvas.clientHeight / cam.zoom;
+      const delta = new THREE.Vector3()
+        .addScaledVector(right, -dx * wPx)
+        .addScaledVector(up,     dy * hPx);
+
+      camera.position.add(delta);
+      camera.updateMatrixWorld();
+      panRef.current.x += delta.x;
+      panRef.current.z += delta.z;
+    }
+
+    function onUp() { active = false; }
+
+    canvas.addEventListener("pointerdown", onDown);
+    canvas.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup",   onUp);
+    return () => {
+      canvas.removeEventListener("pointerdown", onDown);
+      canvas.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup",   onUp);
+    };
+  }, [camera, gl, panRef]);
+
+  return null;
+}
+
+/* ── Expose floor-raycast to parent ── */
 function RaycastSetup({
   raycastRef,
 }: {
@@ -204,31 +263,47 @@ function SceneWalls({ wc, dc, hc }: { wc: number; dc: number; hc: number }) {
   );
 }
 
-/* ── Invisible floor plane — absorbs hover/click for placement ── */
+/* ── Floor interaction — placement hover/click, suppresses both when the user pans ── */
 function FloorInteraction({ wc, dc, onMove, onClick }: {
   wc: number; dc: number;
   onMove: (col: number, row: number) => void;
   onClick: () => void;
 }) {
+  const downPos  = useRef<{ x: number; y: number } | null>(null);
+  const didPan   = useRef(false);
+
   return (
     <mesh
       position={[wc / 2, -0.002, dc / 2]}
       rotation={[-Math.PI / 2, 0, 0]}
-      onPointerMove={(e) => { e.stopPropagation(); onMove(e.point.x, e.point.z); }}
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        downPos.current = { x: e.nativeEvent.clientX, y: e.nativeEvent.clientY };
+        didPan.current = false;
+      }}
+      onPointerMove={(e) => {
+        e.stopPropagation();
+        if (downPos.current) {
+          const dx = e.nativeEvent.clientX - downPos.current.x;
+          const dy = e.nativeEvent.clientY - downPos.current.y;
+          if (Math.hypot(dx, dy) > 5) didPan.current = true;
+        }
+        if (!didPan.current) onMove(e.point.x, e.point.z);
+      }}
+      onPointerUp={() => { downPos.current = null; }}
+      onClick={(e) => { e.stopPropagation(); if (!didPan.current) onClick(); }}
     >
-      <planeGeometry args={[wc + 10, dc + 10]} />
+      <planeGeometry args={[wc + 100, dc + 100]} />
       <meshBasicMaterial transparent opacity={0} />
     </mesh>
   );
 }
 
-/* ── Single moving box ── */
-function BoxMesh3D({ box, isSelected, onClick, onDragStart, inPlaceMode, opacity = 1, roomColor }: {
+/* ── Box mesh — click to select only, no drag gesture ── */
+function BoxMesh3D({ box, isSelected, onClick, inPlaceMode, opacity = 1, roomColor }: {
   box: BoxWithRelations;
   isSelected: boolean;
   onClick?: () => void;
-  onDragStart?: (e: PointerEvent, box: BoxWithRelations) => void;
   inPlaceMode: boolean;
   opacity?: number;
   roomColor: string;
@@ -244,32 +319,9 @@ function BoxMesh3D({ box, isSelected, onClick, onDragStart, inPlaceMode, opacity
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
       <mesh
         onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onClick?.(); }}
-        onPointerDown={inPlaceMode ? undefined : (e) => {
-          e.stopPropagation();
-          const native = e.nativeEvent;
-          const x0 = native.clientX; const y0 = native.clientY;
-          function onMove(ev: PointerEvent) {
-            if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 5) {
-              cleanup(); onDragStart?.(native, box);
-            }
-          }
-          function onUp() { cleanup(); }
-          function cleanup() {
-            document.removeEventListener("pointermove", onMove, true);
-            document.removeEventListener("pointerup",   onUp,   true);
-          }
-          document.addEventListener("pointermove", onMove, true);
-          document.addEventListener("pointerup",   onUp,   true);
-        }}
       >
         <boxGeometry args={[wc, hc, dc]} />
-        <meshStandardMaterial
-          color={baseColor}
-          roughness={0.85}
-          metalness={0}
-          transparent={opacity < 1}
-          opacity={opacity}
-        />
+        <meshStandardMaterial color={baseColor} roughness={0.85} metalness={0} transparent={opacity < 1} opacity={opacity} />
       </mesh>
       <lineSegments geometry={edgeGeo} renderOrder={2}>
         <lineBasicMaterial color={shade(roomColor, 0.42)} transparent opacity={opacity * 0.55} />
@@ -291,12 +343,11 @@ function BoxMesh3D({ box, isSelected, onClick, onDragStart, inPlaceMode, opacity
   );
 }
 
-/* ── Single furniture item ── */
-function FurnitureMesh3D({ item, isSelected, onClick, onDragStart, inPlaceMode, opacity = 1 }: {
+/* ── Furniture mesh — click to select only, no drag gesture ── */
+function FurnitureMesh3D({ item, isSelected, onClick, inPlaceMode, opacity = 1 }: {
   item: FurnitureItem;
   isSelected: boolean;
   onClick?: () => void;
-  onDragStart?: (e: PointerEvent, item: FurnitureItem) => void;
   inPlaceMode: boolean;
   opacity?: number;
 }) {
@@ -308,7 +359,6 @@ function FurnitureMesh3D({ item, isSelected, onClick, onDragStart, inPlaceMode, 
   const r    = Math.max(0.005, Math.min((item.borderRadius / 100) * Math.min(wc, hc, dc) * 0.35, 0.15));
   const label = (item.groupName ?? item.name).slice(0, 9);
   const edgeGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(wc, hc, dc)), [wc, hc, dc]);
-  const edgeColor = shade(base, 0.45);
 
   return (
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
@@ -317,34 +367,11 @@ function FurnitureMesh3D({ item, isSelected, onClick, onDragStart, inPlaceMode, 
         radius={r}
         smoothness={4}
         onClick={inPlaceMode ? undefined : (e) => { e.stopPropagation(); onClick?.(); }}
-        onPointerDown={inPlaceMode ? undefined : (e) => {
-          e.stopPropagation();
-          const native = e.nativeEvent;
-          const x0 = native.clientX; const y0 = native.clientY;
-          function onMove(ev: PointerEvent) {
-            if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 5) {
-              cleanup(); onDragStart?.(native, item);
-            }
-          }
-          function onUp() { cleanup(); }
-          function cleanup() {
-            document.removeEventListener("pointermove", onMove, true);
-            document.removeEventListener("pointerup",   onUp,   true);
-          }
-          document.addEventListener("pointermove", onMove, true);
-          document.addEventListener("pointerup",   onUp,   true);
-        }}
       >
-        <meshStandardMaterial
-          color={col3}
-          roughness={0.72}
-          metalness={0}
-          transparent={opacity < 1}
-          opacity={opacity}
-        />
+        <meshStandardMaterial color={col3} roughness={0.72} metalness={0} transparent={opacity < 1} opacity={opacity} />
       </RoundedBox>
       <lineSegments geometry={edgeGeo} renderOrder={2}>
-        <lineBasicMaterial color={edgeColor} transparent opacity={opacity * 0.5} />
+        <lineBasicMaterial color={shade(base, 0.45)} transparent opacity={opacity * 0.5} />
       </lineSegments>
       {opacity > 0.3 && (
         <Text
@@ -363,29 +390,29 @@ function FurnitureMesh3D({ item, isSelected, onClick, onDragStart, inPlaceMode, 
   );
 }
 
-/* ── Ghost / placement preview ── */
+/* ── Ghost placement preview ── */
 function GhostPreview({ col, row, stackLevel, wc, hc, dc, isFurniture }: {
   col: number; row: number; stackLevel: number;
   wc: number; hc: number; dc: number; isFurniture: boolean;
 }) {
-  const z0       = stackLevel - 1;
-  const edgeGeo  = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(wc, hc, dc)), [wc, hc, dc]);
-  const fillColor = isFurniture ? "#5B7ABE" : "#E8562A";
+  const z0      = stackLevel - 1;
+  const edgeGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(wc, hc, dc)), [wc, hc, dc]);
+  const fill    = isFurniture ? "#5B7ABE" : "#E8562A";
 
   return (
     <group position={[col + wc / 2, z0 + hc / 2, row + dc / 2]}>
       <mesh>
         <boxGeometry args={[wc, hc, dc]} />
-        <meshBasicMaterial color={fillColor} transparent opacity={0.12} depthWrite={false} />
+        <meshBasicMaterial color={fill} transparent opacity={0.12} depthWrite={false} />
       </mesh>
       <lineSegments geometry={edgeGeo} renderOrder={2}>
-        <lineBasicMaterial color={fillColor} transparent opacity={0.75} />
+        <lineBasicMaterial color={fill} transparent opacity={0.75} />
       </lineSegments>
     </group>
   );
 }
 
-/* ── Overlay action buttons via Html ── */
+/* ── Overlay buttons: drag handle + remove ── */
 function BoxOverlay({ box, onDragStart, onUnplace }: {
   box: BoxWithRelations;
   onDragStart: (e: PointerEvent, b: BoxWithRelations) => void;
@@ -394,7 +421,7 @@ function BoxOverlay({ box, onDragStart, onUnplace }: {
   const col = box.gridCol!; const row = box.gridRow!;
   const w = bwc(box.boxSize); const d = bdc(box.boxSize); const h = bhc(box.boxSize);
   const z0 = (box.stackLevel ?? 1) - 1;
-  const btnBase: React.CSSProperties = {
+  const btn: React.CSSProperties = {
     width: 30, height: 28, borderRadius: 7, background: "white",
     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
     fontFamily: "inherit",
@@ -402,20 +429,12 @@ function BoxOverlay({ box, onDragStart, onUnplace }: {
   return (
     <Html position={[col + w / 2, z0 + h + 0.3, row + d / 2]} center>
       <div style={{ display: "flex", gap: 4, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.22))", pointerEvents: "auto" }}>
-        <button
-          onPointerDown={(e) => onDragStart(e.nativeEvent, box)}
-          style={{ ...btnBase, border: "1px solid #D0C8BA", cursor: "grab" }}
-        >
+        <button onPointerDown={(e) => onDragStart(e.nativeEvent, box)} style={{ ...btn, border: "1px solid #D0C8BA", cursor: "grab" }}>
           <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="#62461A" strokeWidth={1.4} strokeLinecap="round">
             <path d="M7 0v14M0 7h14M7 0L5 2.5M7 0L9 2.5M7 14L5 11.5M7 14L9 11.5M0 7L2.5 5M0 7L2.5 9M14 7L11.5 5M14 7L11.5 9"/>
           </svg>
         </button>
-        <button
-          onClick={onUnplace}
-          style={{ ...btnBase, border: "1px solid #FFD0C0", fontSize: 17, color: "#E8562A", lineHeight: 1 }}
-        >
-          ×
-        </button>
+        <button onClick={onUnplace} style={{ ...btn, border: "1px solid #FFD0C0", fontSize: 17, color: "#E8562A", lineHeight: 1 }}>×</button>
       </div>
     </Html>
   );
@@ -429,7 +448,7 @@ function FurnitureOverlay({ item, onDragStart, onUnplace }: {
   const col = item.gridCol!; const row = item.gridRow!;
   const w = item.widthIn / 12; const d = item.depthIn / 12; const h = item.heightIn / 12;
   const z0 = (item.stackLevel ?? 1) - 1;
-  const btnBase: React.CSSProperties = {
+  const btn: React.CSSProperties = {
     width: 30, height: 28, borderRadius: 7, background: "white",
     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
     fontFamily: "inherit",
@@ -437,26 +456,18 @@ function FurnitureOverlay({ item, onDragStart, onUnplace }: {
   return (
     <Html position={[col + w / 2, z0 + h + 0.3, row + d / 2]} center>
       <div style={{ display: "flex", gap: 4, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.22))", pointerEvents: "auto" }}>
-        <button
-          onPointerDown={(e) => onDragStart(e.nativeEvent, item)}
-          style={{ ...btnBase, border: "1px solid #C0CED8", cursor: "grab" }}
-        >
+        <button onPointerDown={(e) => onDragStart(e.nativeEvent, item)} style={{ ...btn, border: "1px solid #C0CED8", cursor: "grab" }}>
           <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="#354D65" strokeWidth={1.4} strokeLinecap="round">
             <path d="M7 0v14M0 7h14M7 0L5 2.5M7 0L9 2.5M7 14L5 11.5M7 14L9 11.5M0 7L2.5 5M0 7L2.5 9M14 7L11.5 5M14 7L11.5 9"/>
           </svg>
         </button>
-        <button
-          onClick={onUnplace}
-          style={{ ...btnBase, border: "1px solid #C0CED8", fontSize: 17, color: "#5C7A96", lineHeight: 1 }}
-        >
-          ×
-        </button>
+        <button onClick={onUnplace} style={{ ...btn, border: "1px solid #C0CED8", fontSize: 17, color: "#5C7A96", lineHeight: 1 }}>×</button>
       </div>
     </Html>
   );
 }
 
-/* ── Main exported canvas ── */
+/* ── Main canvas ── */
 export function GridCanvas3D(props: GridCanvas3DProps) {
   const {
     placedBoxes, placedFurniture,
@@ -472,6 +483,9 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
     onDragBoxStart, onDragFurnitureStart,
     onUnplaceBox, onUnplaceFurniture,
   } = props;
+
+  /* Shared pan offset — mutated directly by PanController, read by IsometricCamera */
+  const panRef = useRef({ x: 0, z: 0 });
 
   const sortedItems = useMemo(() => {
     type SI = { kind: "box"; box: BoxWithRelations } | { kind: "fi"; fi: FurnitureItem };
@@ -507,8 +521,11 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
         }}
         onPointerLeave={onFloorLeave}
       >
-        <IsometricCamera wc={wc} dc={dc} hc={hc} zoomFactor={zoomFactor} />
+        <IsometricCamera wc={wc} dc={dc} hc={hc} zoomFactor={zoomFactor} panRef={panRef} />
         <RaycastSetup raycastRef={raycastRef} />
+
+        {/* Pan: enabled whenever no overlay-drag is in progress */}
+        <PanController panRef={panRef} enabled={!isDragging} />
 
         <ambientLight color="#fdf4e8" intensity={0.55} />
         <directionalLight color="#ffffff" intensity={1.65} position={[1, 2.5, 0.5]} />
@@ -525,7 +542,6 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
                 box={item.box}
                 isSelected={infoBox?.id === item.box.id}
                 onClick={() => onSelectBox(item.box)}
-                onDragStart={onDragBoxStart}
                 inPlaceMode={mode === "place"}
                 roomColor={getRoomColor(item.box.roomId, roomIndex)}
               />
@@ -534,68 +550,42 @@ export function GridCanvas3D(props: GridCanvas3DProps) {
                 item={item.fi}
                 isSelected={infoFurniture?.id === item.fi.id}
                 onClick={() => onSelectFurniture(item.fi)}
-                onDragStart={onDragFurnitureStart}
                 inPlaceMode={mode === "place"}
               />
         )}
 
         {isMoving && selectedBox && selectedBox.gridCol !== null && (
-          <BoxMesh3D
-            box={selectedBox}
-            isSelected={false}
-            inPlaceMode={true}
-            opacity={0.22}
-            roomColor={getRoomColor(selectedBox.roomId, roomIndex)}
-          />
+          <BoxMesh3D box={selectedBox} isSelected={false} inPlaceMode opacity={0.22}
+            roomColor={getRoomColor(selectedBox.roomId, roomIndex)} />
         )}
         {isMovingFurniture && selectedFurniture && selectedFurniture.gridCol !== null && (
-          <FurnitureMesh3D item={selectedFurniture} isSelected={false} inPlaceMode={true} opacity={0.22} />
+          <FurnitureMesh3D item={selectedFurniture} isSelected={false} inPlaceMode opacity={0.22} />
         )}
 
         {isDragging && selectedBox && hoverCell && (
           <BoxMesh3D
             box={{ ...selectedBox, gridCol: hoverCell.col, gridRow: hoverCell.row, stackLevel: effectiveLevel }}
-            isSelected={false}
-            inPlaceMode={true}
-            opacity={0.9}
+            isSelected={false} inPlaceMode opacity={0.9}
             roomColor={getRoomColor(selectedBox.roomId, roomIndex)}
           />
         )}
         {isDragging && selectedFurniture && hoverCell && (
           <FurnitureMesh3D
             item={{ ...selectedFurniture, gridCol: hoverCell.col, gridRow: hoverCell.row, stackLevel: effectiveLevel }}
-            isSelected={false}
-            inPlaceMode={true}
-            opacity={0.9}
+            isSelected={false} inPlaceMode opacity={0.9}
           />
         )}
 
         {!isDragging && hoverCell && selectedBox && mode === "place" && (
-          <GhostPreview
-            col={hoverCell.col}
-            row={hoverCell.row}
-            stackLevel={effectiveLevel}
-            wc={bwc(selectedBox.boxSize)}
-            hc={bhc(selectedBox.boxSize)}
-            dc={bdc(selectedBox.boxSize)}
-            isFurniture={false}
-          />
+          <GhostPreview col={hoverCell.col} row={hoverCell.row} stackLevel={effectiveLevel}
+            wc={bwc(selectedBox.boxSize)} hc={bhc(selectedBox.boxSize)} dc={bdc(selectedBox.boxSize)} isFurniture={false} />
         )}
         {!isDragging && hoverCell && selectedFurniture && mode === "place" && (
-          <GhostPreview
-            col={hoverCell.col}
-            row={hoverCell.row}
-            stackLevel={effectiveLevel}
-            wc={selectedFurniture.widthIn / 12}
-            hc={selectedFurniture.heightIn / 12}
-            dc={selectedFurniture.depthIn / 12}
-            isFurniture={true}
-          />
+          <GhostPreview col={hoverCell.col} row={hoverCell.row} stackLevel={effectiveLevel}
+            wc={selectedFurniture.widthIn / 12} hc={selectedFurniture.heightIn / 12} dc={selectedFurniture.depthIn / 12} isFurniture />
         )}
 
-        {highlightBox && highlightBox.gridCol !== null && (
-          <FocusPulse box={highlightBox} />
-        )}
+        {highlightBox && highlightBox.gridCol !== null && <FocusPulse box={highlightBox} />}
 
         {infoBox && mode === "view" && infoBox.gridCol !== null && (
           <BoxOverlay box={infoBox} onDragStart={onDragBoxStart} onUnplace={onUnplaceBox} />
