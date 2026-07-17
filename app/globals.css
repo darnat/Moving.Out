@@ -66,6 +66,11 @@ input, select, textarea, button {
   font-family: var(--font-body);
 }
 
+/* Prevent iOS Safari from zooming on input focus — triggered when font-size < 16px */
+input, select, textarea {
+  font-size: max(16px, 1em);
+}
+
 .label-number {
   font-family: var(--font-mono);
   letter-spacing: -0.04em;
